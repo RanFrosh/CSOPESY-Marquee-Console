@@ -109,11 +109,14 @@ void command() {
         for (int i = 14; i < 20; i++) cout << "\033[" << i << ";1H" << SPACES;
         cout << "\033[13;1H";
     }
+	
+	string nospace = temp;
+	nospace.erase(remove(nospace.begin(), nospace.end(), ' '), nospace.end());
 
     if (temp == "help") print_help();
     else if (temp == "start_marquee") animating = true;
     else if (temp == "stop_marquee") animating = false;
-    else if (temp.rfind("set_text ", 0) == 0) {
+    else if (temp.rfind("set_text ", 0) == 0 && nospace.length() > 8) {
         lock_guard<mutex> l(text_mtx);
         marquee = temp.substr(9);
     }
