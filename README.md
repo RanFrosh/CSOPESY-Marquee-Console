@@ -18,5 +18,5 @@ This project contains the following folders:
 
 The entry class file `main.cpp` is located in the **M03** folder.
 
-To compile and run the program, enter the following command in the command line or terminal.
+To compile and run the program, enter the following command in the command line or terminal. <br>
 `g++ main.cpp -o main.exe`
