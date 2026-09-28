@@ -20,7 +20,7 @@ string marquee = "CSOPESY";
 //atomic elements for multithread safe use of a variable
 atomic<bool> running(true);     // program alive or not
 atomic<bool> animating(true);   // marquee moving or not
-atomic<int> speed_ms(400);
+atomic<int> speed_ms(200);
 
 // draw a line on row 1 without disturbing the user's cursor
 void draw(const string& line) {
