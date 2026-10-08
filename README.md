@@ -13,6 +13,7 @@ This project contains the following folders:
 
 -   **CLI Exercise**: a simple marquee console
 -   **M03**: a marquee console with animation and functions
+-   **M04**: a desktop-style OS mock-up
 
 ## Compiling & Running Instructions
 
