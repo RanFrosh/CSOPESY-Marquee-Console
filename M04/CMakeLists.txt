@@ -31,17 +31,23 @@ add_executable (M04
   "${IMGUI_DIR}/imgui_tables.cpp"
   "${IMGUI_DIR}/imgui_widgets.cpp"
 
-  # Backends: Win32 platform + DirectX 11 renderer
-  "${IMGUI_DIR}/backends/imgui_impl_win32.h"
-  "${IMGUI_DIR}/backends/imgui_impl_win32.cpp"
-  "${IMGUI_DIR}/backends/imgui_impl_dx11.h"
-  "${IMGUI_DIR}/backends/imgui_impl_dx11.cpp"
+  # Backends: OpenGl with GLFW
+	"${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
+	"${IMGUI_DIR}/backends/imgui_impl_opengl3.h"
+	"${IMGUI_DIR}/backends/imgui_impl_opengl3_loader.h"
+	"${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+	"${IMGUI_DIR}/backends/imgui_impl_glfw.h"
 )
 
-target_include_directories (M04 PRIVATE "${IMGUI_DIR}" "${IMGUI_DIR}/backends")
+target_include_directories (M04 PRIVATE "${IMGUI_DIR}" "${IMGUI_DIR}/backends" "${IMGUI_DIR}/examples/libs/glfw/include")
 
-# DirectX 11 + DXGI come from the Windows SDK installed with Visual Studio.
-target_link_libraries (M04 PRIVATE d3d11 dxgi d3dcompiler)
+# OpenGL3 with GLFW libraries.
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(GLFW_LIB "${IMGUI_DIR}/examples/libs/glfw/lib-vc2010-64/glfw3.lib")
+else()
+  set(GLFW_LIB "${IMGUI_DIR}/examples/libs/glfw/lib-vc2010-32/glfw3.lib")
+endif()
+target_link_libraries (M04 PRIVATE opengl32 "${GLFW_LIB}")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET M04 PROPERTY CXX_STANDARD 20)
