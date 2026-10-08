@@ -1,2 +1,7 @@
-/M03/out/
-/M03/.vs/
+out/
+.vs/
+ipch/
+*.exe
+*.pdb
+*.ilk
+*.obj
