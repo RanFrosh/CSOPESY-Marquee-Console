@@ -94,11 +94,16 @@ int main(int, char**)
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
 
-    // Create window with graphics context
-    float main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor()); // Valid on GLFW 3.3+ only
-    GLFWwindow* window = glfwCreateWindow((int)(1920 * main_scale), (int)(1080 * main_scale), "CSOPESY and the Justins", nullptr, nullptr);
+    float main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor());
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);   // strip title bar + border
+    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "CSOPESY and the Justins", nullptr, nullptr);
     if (window == nullptr)
         return 1;
+    int mon_x, mon_y;
+    glfwGetMonitorPos(monitor, &mon_x, &mon_y);
+    glfwSetWindowPos(window, mon_x, mon_y);       // align exactly onto the monitor
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
 
@@ -173,6 +178,8 @@ int main(int, char**)
             ImGui_ImplGlfw_Sleep(10);
             continue;
         }
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
 
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -233,10 +240,14 @@ int main(int, char**)
             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
             ImGuiWindowFlags_NoScrollWithMouse);
+        const float CONTENT_W = 240.0f;   // centered block width; widen as you add widgets
+        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - CONTENT_W) * 0.5f);
+        ImGui::BeginChild("##botbar_center", ImVec2(CONTENT_W, 0), ImGuiChildFlags_AutoResizeY);
         if (ImGui::Button("Testing")) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);  
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
-        ImGui::SameLine();
+        // add more taskbar widgets here - they stay centered as a group
+        ImGui::EndChild();
         ImGui::End();
         ImGui::PopStyleVar();
 
