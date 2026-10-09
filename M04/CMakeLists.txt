@@ -17,6 +17,7 @@ set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
 add_executable (M04
   "M04.cpp"
   "M04.h"
+  "stb_image.h"
 
   # Dear ImGui core (headers listed for IDE visibility only)
   "${IMGUI_DIR}/imconfig.h"
@@ -40,6 +41,9 @@ add_executable (M04
 )
 
 target_include_directories (M04 PRIVATE "${IMGUI_DIR}" "${IMGUI_DIR}/backends" "${IMGUI_DIR}/examples/libs/glfw/include")
+
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/rick.png" RICK_PNG_PATH)
+target_compile_definitions(M04 PRIVATE RICK_PNG_PATH="${RICK_PNG_PATH}")
 
 # OpenGL3 with GLFW libraries.
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
