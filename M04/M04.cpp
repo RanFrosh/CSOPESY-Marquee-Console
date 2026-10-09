@@ -26,6 +26,7 @@
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
 #include <chrono>
+#include <ctime>
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of testing and compatibility with old VS compilers.
 // To link with VS2010-era libraries, VS2015+ requires linking with legacy_stdio_definitions.lib, which we do using this pragma.
@@ -202,8 +203,18 @@ int main(int, char**)
             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
         // widgets
+        if (clock) {
+            std::time_t t = std::chrono::system_clock::to_time_t(
+                std::chrono::system_clock::now());
+            std::tm tm_now{};
+            localtime_s(&tm_now, &t);
+            char time_buf[64];
+            std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d || %I:%M:%S %p", &tm_now);
+            ImGui::Text(time_buf);
+            ImGui::SameLine();
+        }
         if (ImGui::Button("Turn off")) { 
-            exit(0);
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
         ImGui::SameLine();    
         ImGui::End();
