@@ -219,6 +219,27 @@ int main(int, char**)
         ImGui::SameLine();    
         ImGui::End();
 
+        ImGuiViewport* ap = ImGui::GetMainViewport();
+        const float TASKBAR_H = 40.0f;   
+
+        ImGui::SetNextWindowPos(
+            ImVec2(ap->WorkPos.x, ap->WorkPos.y + ap->WorkSize.y),   
+            ImGuiCond_Always, ImVec2(0.0f, 1.0f));                   
+        ImGui::SetNextWindowSize(
+            ImVec2(ap->WorkSize.x, TASKBAR_H), ImGuiCond_Always);    
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));   
+        ImGui::Begin("##botbar", nullptr,
+            ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoScrollWithMouse);
+        if (ImGui::Button("Testing")) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);  
+        }
+        ImGui::SameLine();
+        ImGui::End();
+        ImGui::PopStyleVar();
+
         // Rendering
         ImGui::Render();
         int display_w, display_h;
