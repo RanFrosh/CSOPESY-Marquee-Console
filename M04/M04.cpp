@@ -227,7 +227,7 @@ int main(int, char**)
         ImGui::End();
 
         ImGuiViewport* ap = ImGui::GetMainViewport();
-        const float TASKBAR_H = 40.0f;   
+        const float TASKBAR_H = 50.0f;   
 
         ImGui::SetNextWindowPos(
             ImVec2(ap->WorkPos.x, ap->WorkPos.y + ap->WorkSize.y),   
@@ -244,6 +244,14 @@ int main(int, char**)
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - CONTENT_W) * 0.5f);
         ImGui::BeginChild("##botbar_center", ImVec2(CONTENT_W, 0), ImGuiChildFlags_AutoResizeY);
         if (ImGui::Button("Testing")) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("More buttons")) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("3rd button")) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
         // add more taskbar widgets here - they stay centered as a group
