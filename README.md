@@ -1,4 +1,4 @@
-# MO3: Marquee Console
+# Marquee Console
 
 ## CSOPESY S01 Group 10
 
@@ -21,3 +21,10 @@ The entry class file `main.cpp` is located in the **M03** folder.
 
 To compile and run the program, enter the following command in the command line or terminal. <br>
 `g++ main.cpp -o main.exe`
+
+---
+
+The entry class file `M04.cpp` is located in the **M04** folder.
+
+To compile and run the program, simply open **Visual Studio** and run M04.cpp after letting CMakeLists.txt cache.
+Set Visual Studio config json variable CMakeList to true.
