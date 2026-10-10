@@ -244,11 +244,13 @@ int main(int, char**)
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - CONTENT_W) * 0.5f);
         ImGui::BeginChild("##botbar_center", ImVec2(CONTENT_W, 0), ImGuiChildFlags_AutoResizeY);
         const float BTN_H = TASKBAR_H - 2.0f * ImGui::GetStyle().WindowPadding.y;
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, BTN_H * 0.5f);
         if (ImGui::Button("Testing", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
         ImGui::SameLine();
         if (ImGui::Button("More buttons", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
         ImGui::SameLine();
         if (ImGui::Button("3rd button", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
+        ImGui::PopStyleVar();
         // add more taskbar widgets here - they stay centered as a group
         ImGui::EndChild();
         ImGui::End();
