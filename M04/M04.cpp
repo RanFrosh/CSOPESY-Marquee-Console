@@ -16,6 +16,9 @@
 #ifndef BEE_TXT_PATH
 #define BEE_TXT_PATH "bee.txt"
 #endif
+#ifndef GOOGOL_PNG_PATH
+#define GOOGOL_PNG_PATH "googol.png"
+#endif
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -181,6 +184,8 @@ int main(int, char**)
     bool clock = true;
     bool taskman = false;
     bool show_bee_movie = false;
+    bool show_googol = false;
+    char googol_query[256] = "";
 
     // Main loop
 #ifdef __EMSCRIPTEN__
@@ -295,6 +300,28 @@ int main(int, char**)
             ImGui::End();
         }
 
+        if (show_googol)
+        {
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.45f, 0.45f, 0.45f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_TitleBg, ImVec4(0.32f, 0.32f, 0.32f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(0.40f, 0.40f, 0.40f, 1.0f));
+            ImGui::SetNextWindowSize(ImVec2(560, 270), ImGuiCond_FirstUseEver);
+            if (ImGui::Begin("Googol Chrom", &show_googol))
+            {
+                const char* heading = "Googol";
+                ImGui::PushFont(NULL, ImGui::GetStyle().FontSizeBase * 2.5f);
+                ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ImGui::CalcTextSize(heading).x) * 0.5f);
+                ImGui::TextUnformatted(heading);
+
+                const float field_w = 320.0f;
+                ImGui::SetCursorPosX((ImGui::GetWindowWidth() - field_w) * 0.5f);
+                ImGui::SetNextItemWidth(field_w);
+                ImGui::InputText("##search", googol_query, sizeof(googol_query));
+            }
+            ImGui::End();
+            ImGui::PopStyleColor(3);
+        }
+
         ImGuiViewport* ap = ImGui::GetMainViewport();
         const float TASKBAR_H = 50.0f;   
 
@@ -321,7 +348,7 @@ int main(int, char**)
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, BTN_H * 0.5f);
         if (ImGui::Button("Bee Movie", ImVec2(0, BTN_H))) { show_bee_movie = true; }
         ImGui::SameLine();
-        if (ImGui::Button("Googol Chrom", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
+        if (ImGui::Button("Googol Chrom", ImVec2(0, BTN_H))) { show_googol = true; }
         ImGui::SameLine();
         if (ImGui::Button("Tax Manager", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
         ImGui::PopStyleVar();
