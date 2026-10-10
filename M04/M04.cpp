@@ -243,17 +243,12 @@ int main(int, char**)
         const float CONTENT_W = 240.0f;   // centered block width; widen as you add widgets
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - CONTENT_W) * 0.5f);
         ImGui::BeginChild("##botbar_center", ImVec2(CONTENT_W, 0), ImGuiChildFlags_AutoResizeY);
-        if (ImGui::Button("Testing")) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        }
+        const float BTN_H = TASKBAR_H - 2.0f * ImGui::GetStyle().WindowPadding.y;
+        if (ImGui::Button("Testing", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
         ImGui::SameLine();
-        if (ImGui::Button("More buttons")) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        }
+        if (ImGui::Button("More buttons", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
         ImGui::SameLine();
-        if (ImGui::Button("3rd button")) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        }
+        if (ImGui::Button("3rd button", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
         // add more taskbar widgets here - they stay centered as a group
         ImGui::EndChild();
         ImGui::End();
