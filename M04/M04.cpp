@@ -337,6 +337,41 @@ int main(int, char**)
         {
             ImGui::SetNextWindowSize(ImVec2(560, 270), ImGuiCond_FirstUseEver);
             ImGui::Begin("Fanum Tax Manager", &show_tax_manager);
+
+            const ImVec2 avail = ImGui::GetContentRegionAvail();
+
+            // LEFT: nav pane, width sized to widest label
+            const char* nav_items[] = { "Processes", "Performance", "App History",
+                                        "Startup Apps", "Users", "Details", "Services" };
+            float nav_text_w = 0.0f;
+            for (const char* s : nav_items)
+                nav_text_w = (ImGui::CalcTextSize(s).x > nav_text_w) ? ImGui::CalcTextSize(s).x : nav_text_w;
+            const float nav_w = nav_text_w + 2.0f * style.WindowPadding.x;
+
+            ImGui::BeginChild("##mgmt_nav", ImVec2(nav_w, avail.y), ImGuiChildFlags_Borders);
+            for (const char* s : nav_items)
+                ImGui::TextUnformatted(s);
+            ImGui::EndChild();
+
+            ImGui::SameLine();
+
+            // RIGHT: header row + (empty) body
+            ImGui::BeginChild("##mgmt_main", ImVec2(0.0f, avail.y), ImGuiChildFlags_Borders);
+            if (ImGui::BeginTable("##mgmt_tabs", 5,
+                    ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings))
+            {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted("Processes");
+                ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted("67% CPU");
+                ImGui::TableSetColumnIndex(2); ImGui::TextUnformatted("67% Memory");
+                ImGui::TableSetColumnIndex(3); ImGui::TextUnformatted("67% Disk");
+                ImGui::TableSetColumnIndex(4); ImGui::TextUnformatted("67% Network");
+                ImGui::EndTable();
+            }
+            ImGui::Separator();
+            // rest of right pane intentionally empty for now
+            ImGui::EndChild();
+
             ImGui::End();
         }
 
