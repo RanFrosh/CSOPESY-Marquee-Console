@@ -254,7 +254,7 @@ int main(int, char**)
         if (show_bee_movie)
         {
             ImGui::SetNextWindowSize(ImVec2(900, 600), ImGuiCond_FirstUseEver);
-            if (ImGui::Begin("Bee Movie", &show_bee_movie))      // dropped ImGuiWindowFlags_HorizontalScrollbar
+            if (ImGui::Begin("Bee Movie", &show_bee_movie))      
             {
                 const float spacing = ImGui::GetStyle().ItemSpacing.x;
                 const ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -262,7 +262,7 @@ int main(int, char**)
 
                 // LEFT: scrolling script, wrapped to the column
                 ImGui::BeginChild("##script", ImVec2(left_w, avail.y), ImGuiChildFlags_Borders);
-                ImGui::PushTextWrapPos(0.0f);                    // safe here - see note below
+                ImGui::PushTextWrapPos(0.0f);                    
                 if (g_bee_text.empty())
                     ImGui::TextUnformatted("(text failed to load)");
                 else
@@ -309,18 +309,22 @@ int main(int, char**)
             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
             ImGuiWindowFlags_NoScrollWithMouse);
-        const float CONTENT_W = 240.0f;   // centered block width; widen as you add widgets
+        const float CONTENT_W = 2.0f +                               
+            ImGui::CalcTextSize("Bee Movie").x +
+            ImGui::CalcTextSize("Googol Chrom").x +
+            ImGui::CalcTextSize("Tax Manager").x +
+            6.0f * style.FramePadding.x +                            
+            2.0f * style.ItemSpacing.x;
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - CONTENT_W) * 0.5f);
         ImGui::BeginChild("##botbar_center", ImVec2(CONTENT_W, 0), ImGuiChildFlags_AutoResizeY);
         const float BTN_H = TASKBAR_H - 2.0f * ImGui::GetStyle().WindowPadding.y;
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, BTN_H * 0.5f);
         if (ImGui::Button("Bee Movie", ImVec2(0, BTN_H))) { show_bee_movie = true; }
         ImGui::SameLine();
-        if (ImGui::Button("More buttons", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
+        if (ImGui::Button("Googol Chrom", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
         ImGui::SameLine();
-        if (ImGui::Button("3rd button", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
+        if (ImGui::Button("Tax Manager", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
         ImGui::PopStyleVar();
-        // add more taskbar widgets here - they stay centered as a group
         ImGui::EndChild();
         ImGui::End();
         ImGui::PopStyleVar();
