@@ -312,6 +312,7 @@ int main(int, char**)
                 ImGui::PushFont(NULL, ImGui::GetStyle().FontSizeBase * 2.5f);
                 ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ImGui::CalcTextSize(heading).x) * 0.5f);
                 ImGui::TextUnformatted(heading);
+                ImGui::PopFont();
 
                 const float field_w = 320.0f;
                 ImGui::SetCursorPosX((ImGui::GetWindowWidth() - field_w) * 0.5f);
