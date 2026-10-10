@@ -19,6 +19,9 @@
 #ifndef GOOGOL_PNG_PATH
 #define GOOGOL_PNG_PATH "googol.png"
 #endif
+#ifndef MGR_PNG_PATH
+#define MGR_PNG_PATH "mgr.png"
+#endif
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -55,6 +58,7 @@ struct Texture { GLuint id = 0; int width = 0; int height = 0; };
 static Texture g_bg;
 static Texture g_bee;
 static Texture g_googol;
+static Texture g_mgr;
 static std::string g_bee_text;
 
 static std::string LoadTextFile(const char* path) {
@@ -158,6 +162,8 @@ int main(int, char**)
         fprintf(stderr, "Bee Movie image failed to load.\n");
     if (!LoadTexture(GOOGOL_PNG_PATH, g_googol))
         fprintf(stderr, "Googol image failed to load.\n");
+    if (!LoadTexture(MGR_PNG_PATH, g_mgr))
+        fprintf(stderr, "Tax Manager image failed to load.\n");
     g_bee_text = LoadTextFile(BEE_TXT_PATH);
     if (g_bee_text.empty())
         fprintf(stderr, "Bee Movie text failed to load.\n");
@@ -188,6 +194,7 @@ int main(int, char**)
     bool taskman = false;
     bool show_bee_movie = false;
     bool show_googol = false;
+    bool show_tax_manager = false;
     char googol_query[256] = "";
 
     // Main loop
@@ -326,14 +333,23 @@ int main(int, char**)
             ImGui::PopStyleColor(3);
         }
 
+        if (show_tax_manager)
+        {
+            ImGui::SetNextWindowSize(ImVec2(560, 270), ImGuiCond_FirstUseEver);
+            ImGui::Begin("Fanum Tax Manager", &show_tax_manager);
+            ImGui::End();
+        }
+
         ImGuiViewport* ap = ImGui::GetMainViewport();
         const float TASKBAR_H = 50.0f;
         const float BTN_H = TASKBAR_H - 2.0f * ImGui::GetStyle().WindowPadding.y;
         const float img_h = BTN_H - 2.0f * style.FramePadding.y;
         const bool bee_ok = g_bee.id != 0 && g_bee.height > 0;
         const bool googol_ok = g_googol.id != 0 && g_googol.height > 0;
+        const bool mgr_ok = g_mgr.id != 0 && g_mgr.height > 0;
         const float bee_w = bee_ok ? img_h * ((float)g_bee.width / (float)g_bee.height) : ImGui::CalcTextSize("Bee Movie").x;
         const float googol_w = googol_ok ? img_h * ((float)g_googol.width / (float)g_googol.height) : ImGui::CalcTextSize("Googol Chrom").x;
+        const float mgr_w = mgr_ok ? img_h * ((float)g_mgr.width / (float)g_mgr.height) : ImGui::CalcTextSize("Fanum Tax Manager").x;
 
         ImGui::SetNextWindowPos(
             ImVec2(ap->WorkPos.x, ap->WorkPos.y + ap->WorkSize.y),   
@@ -347,7 +363,7 @@ int main(int, char**)
             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
             ImGuiWindowFlags_NoScrollWithMouse);
         const float CONTENT_W = bee_w + 2 * style.FramePadding.x + googol_w + 2 * style.FramePadding.x
-            + ImGui::CalcTextSize("Fanum Tax Manager").x + 2 * style.FramePadding.x + 2 * style.ItemSpacing.x;
+            + mgr_w + 2 * style.FramePadding.x + 2 * style.ItemSpacing.x;
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - CONTENT_W) * 0.5f);
         ImGui::BeginChild("##botbar_center", ImVec2(CONTENT_W, 0), ImGuiChildFlags_AutoResizeY);
         
@@ -380,8 +396,17 @@ int main(int, char**)
         if (ImGui::IsItemHovered())
             ImGui::SetItemTooltip("Googol Chrom");
         ImGui::SameLine();
-        if (ImGui::Button("Fanum Tax Manager", ImVec2(0, BTN_H))) // unchanged
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        if (mgr_ok)
+        {
+            if (ImGui::ImageButton("##mgr", (ImTextureID)(intptr_t)g_mgr.id,
+                ImVec2(mgr_w, img_h)))
+                show_tax_manager = true;
+        }
+        else
+        {
+            if (ImGui::Button("Fanum Tax Manager", ImVec2(0, BTN_H)))
+                show_tax_manager = true;
+        }
         if (ImGui::IsItemHovered())
             ImGui::SetItemTooltip("Fanum Tax Manager");
         ImGui::PopStyleVar();
@@ -411,6 +436,7 @@ int main(int, char**)
     glDeleteTextures(1, &g_bg.id);
     glDeleteTextures(1, &g_bee.id);
     glDeleteTextures(1, &g_googol.id);
+    glDeleteTextures(1, &g_mgr.id);
     glfwDestroyWindow(window);
     glfwTerminate();
 
