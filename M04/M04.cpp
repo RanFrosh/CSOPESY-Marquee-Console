@@ -10,6 +10,12 @@
 #ifndef RICK_PNG_PATH
 #define RICK_PNG_PATH "rick.png"
 #endif
+#ifndef BEE_IMG_PATH
+#define BEE_IMG_PATH "bee.png"
+#endif
+#ifndef BEE_TXT_PATH
+#define BEE_TXT_PATH "bee.txt"
+#endif
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -19,7 +25,6 @@
 #include <GLES2/gl2.h>
 #endif
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
-#define STBI_ONLY_PNG
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #ifndef GL_CLAMP_TO_EDGE
@@ -27,6 +32,9 @@
 #endif
 #include <chrono>
 #include <ctime>
+#include <fstream>
+#include <string>
+#include <sstream>
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of testing and compatibility with old VS compilers.
 // To link with VS2010-era libraries, VS2015+ requires linking with legacy_stdio_definitions.lib, which we do using this pragma.
@@ -40,19 +48,30 @@
 #include "../libs/emscripten/emscripten_mainloop_stub.h"
 #endif
 
-static GLuint g_bg_texture = 0;
-static bool LoadBackgroundTexture(const char* path) {
+struct Texture { GLuint id = 0; int width = 0; int height = 0; };
+static Texture g_bg;
+static Texture g_bee;
+static std::string g_bee_text;
+
+static std::string LoadTextFile(const char* path) {
+    std::ifstream f(path);
+    return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+}
+
+static bool LoadTexture(const char* path, Texture& tex) {
     int w, h, n;
     unsigned char* pixels = stbi_load(path, &w, &h, &n, 4);      // forces RGBA
     if (!pixels) { fprintf(stderr, "Failed to load %s: %s\n", path, stbi_failure_reason()); return false; }
-    glGenTextures(1, &g_bg_texture);
-    glBindTexture(GL_TEXTURE_2D, g_bg_texture);
+    glGenTextures(1, &tex.id);
+    glBindTexture(GL_TEXTURE_2D, tex.id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     stbi_image_free(pixels);
+    tex.width = w;
+    tex.height = h;
     return true;
 }
 
@@ -129,8 +148,13 @@ int main(int, char**)
     ImGui_ImplGlfw_InstallEmscriptenCallbacks(window, "#canvas");
 #endif
     ImGui_ImplOpenGL3_Init(glsl_version);
-    if (!LoadBackgroundTexture(RICK_PNG_PATH))
+    if (!LoadTexture(RICK_PNG_PATH, g_bg))
         fprintf(stderr, "Background image failed to load.\n");
+    if (!LoadTexture(BEE_IMG_PATH, g_bee))
+        fprintf(stderr, "Bee Movie image failed to load.\n");
+    g_bee_text = LoadTextFile(BEE_TXT_PATH);
+    if (g_bee_text.empty())
+        fprintf(stderr, "Bee Movie text failed to load.\n");
 
     // Load Fonts
     // - If fonts are not explicitly loaded, Dear ImGui will select an embedded font: either AddFontDefaultVector() or AddFontDefaultBitmap().
@@ -156,6 +180,7 @@ int main(int, char**)
     bool taskbar = true;
     bool clock = true;
     bool taskman = false;
+    bool show_bee_movie = false;
 
     // Main loop
 #ifdef __EMSCRIPTEN__
@@ -198,7 +223,7 @@ int main(int, char**)
             ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("##background", nullptr, flags);
-        ImGui::Image((ImTextureID)(intptr_t)g_bg_texture, ImGui::GetIO().DisplaySize, ImVec2(0, 0), ImVec2(1, 1));
+        ImGui::Image((ImTextureID)(intptr_t)g_bg.id, ImGui::GetIO().DisplaySize, ImVec2(0, 0), ImVec2(1, 1));
         ImGui::End();
         ImGui::PopStyleVar();
 
@@ -226,6 +251,50 @@ int main(int, char**)
         ImGui::SameLine();    
         ImGui::End();
 
+        if (show_bee_movie)
+        {
+            ImGui::SetNextWindowSize(ImVec2(900, 600), ImGuiCond_FirstUseEver);
+            if (ImGui::Begin("Bee Movie", &show_bee_movie))      // dropped ImGuiWindowFlags_HorizontalScrollbar
+            {
+                const float spacing = ImGui::GetStyle().ItemSpacing.x;
+                const ImVec2 avail = ImGui::GetContentRegionAvail();
+                const float left_w = avail.x * 0.5f - spacing * 0.5f;
+
+                // LEFT: scrolling script, wrapped to the column
+                ImGui::BeginChild("##script", ImVec2(left_w, avail.y), ImGuiChildFlags_Borders);
+                ImGui::PushTextWrapPos(0.0f);                    // safe here - see note below
+                if (g_bee_text.empty())
+                    ImGui::TextUnformatted("(text failed to load)");
+                else
+                    ImGui::TextUnformatted(g_bee_text.c_str(), g_bee_text.c_str() + g_bee_text.size());
+                ImGui::PopTextWrapPos();
+                ImGui::EndChild();
+
+                ImGui::SameLine();
+
+                // RIGHT: static poster, fit-to-box, centered both axes
+                ImGui::BeginChild("##poster", ImVec2(0.0f, avail.y), ImGuiChildFlags_Borders,
+                    ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+                if (g_bee.id != 0)
+                {
+                    const ImVec2 room = ImGui::GetContentRegionAvail();
+                    float w = (float)g_bee.width, h = (float)g_bee.height;
+                    float s = room.x / w;
+                    if (room.y / h < s) s = room.y / h;
+                    if (s > 1.0f) s = 1.0f;
+                    w *= s; h *= s;
+                    ImGui::SetCursorPos(ImVec2(
+                        ImGui::GetCursorPosX() + (room.x - w) * 0.5f,
+                        ImGui::GetCursorPosY() + (room.y - h) * 0.5f));
+                    ImGui::Image((ImTextureID)(intptr_t)g_bee.id, ImVec2(w, h));
+                }
+                else
+                    ImGui::TextUnformatted("(image failed to load)");
+                ImGui::EndChild();
+            }
+            ImGui::End();
+        }
+
         ImGuiViewport* ap = ImGui::GetMainViewport();
         const float TASKBAR_H = 50.0f;   
 
@@ -245,7 +314,7 @@ int main(int, char**)
         ImGui::BeginChild("##botbar_center", ImVec2(CONTENT_W, 0), ImGuiChildFlags_AutoResizeY);
         const float BTN_H = TASKBAR_H - 2.0f * ImGui::GetStyle().WindowPadding.y;
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, BTN_H * 0.5f);
-        if (ImGui::Button("Bee Movie", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
+        if (ImGui::Button("Bee Movie", ImVec2(0, BTN_H))) { show_bee_movie = true; }
         ImGui::SameLine();
         if (ImGui::Button("More buttons", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
         ImGui::SameLine();
@@ -275,7 +344,8 @@ int main(int, char**)
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-    glDeleteTextures(1, &g_bg_texture);
+    glDeleteTextures(1, &g_bg.id);
+    glDeleteTextures(1, &g_bee.id);
     glfwDestroyWindow(window);
     glfwTerminate();
 

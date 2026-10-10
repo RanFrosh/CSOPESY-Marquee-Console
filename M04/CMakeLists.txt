@@ -43,7 +43,9 @@ add_executable (M04
 target_include_directories (M04 PRIVATE "${IMGUI_DIR}" "${IMGUI_DIR}/backends" "${IMGUI_DIR}/examples/libs/glfw/include")
 
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/rick.png" RICK_PNG_PATH)
-target_compile_definitions(M04 PRIVATE RICK_PNG_PATH="${RICK_PNG_PATH}")
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/bee.png" BEE_IMG_PATH)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/bee.txt" BEE_TXT_PATH)
+target_compile_definitions(M04 PRIVATE RICK_PNG_PATH="${RICK_PNG_PATH}" BEE_IMG_PATH="${BEE_IMG_PATH}" BEE_TXT_PATH="${BEE_TXT_PATH}")
 
 # OpenGL3 with GLFW libraries.
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
