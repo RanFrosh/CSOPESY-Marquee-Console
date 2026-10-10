@@ -355,21 +355,34 @@ int main(int, char**)
 
             ImGui::SameLine();
 
-            // RIGHT: header row + (empty) body
+            // RIGHT: pinned header + scrollable process list
             ImGui::BeginChild("##mgmt_main", ImVec2(0.0f, avail.y), ImGuiChildFlags_Borders);
+            const ImVec2 main_avail = ImGui::GetContentRegionAvail();
             if (ImGui::BeginTable("##mgmt_tabs", 5,
-                    ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings))
+                    ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings |
+                    ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerH,
+                    ImVec2(0.0f, main_avail.y)))
             {
-                ImGui::TableNextRow();
+                ImGui::TableSetupScrollFreeze(0, 1);          // freeze header row
+
+                ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
                 ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted("Processes");
                 ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted("67% CPU");
                 ImGui::TableSetColumnIndex(2); ImGui::TextUnformatted("67% Memory");
                 ImGui::TableSetColumnIndex(3); ImGui::TextUnformatted("67% Disk");
                 ImGui::TableSetColumnIndex(4); ImGui::TextUnformatted("67% Network");
+
+                for (int i = 1; i <= 10; ++i)
+                {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0); ImGui::Text("Process %d", i);
+                    ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted("67%");
+                    ImGui::TableSetColumnIndex(2); ImGui::TextUnformatted("67.0MB");
+                    ImGui::TableSetColumnIndex(3); ImGui::TextUnformatted("67.0MB/s");
+                    ImGui::TableSetColumnIndex(4); ImGui::TextUnformatted("67.0Mbps");
+                }
                 ImGui::EndTable();
             }
-            ImGui::Separator();
-            // rest of right pane intentionally empty for now
             ImGui::EndChild();
 
             ImGui::End();
