@@ -54,6 +54,7 @@
 struct Texture { GLuint id = 0; int width = 0; int height = 0; };
 static Texture g_bg;
 static Texture g_bee;
+static Texture g_googol;
 static std::string g_bee_text;
 
 static std::string LoadTextFile(const char* path) {
@@ -155,6 +156,8 @@ int main(int, char**)
         fprintf(stderr, "Background image failed to load.\n");
     if (!LoadTexture(BEE_IMG_PATH, g_bee))
         fprintf(stderr, "Bee Movie image failed to load.\n");
+    if (!LoadTexture(GOOGOL_PNG_PATH, g_googol))
+        fprintf(stderr, "Googol image failed to load.\n");
     g_bee_text = LoadTextFile(BEE_TXT_PATH);
     if (g_bee_text.empty())
         fprintf(stderr, "Bee Movie text failed to load.\n");
@@ -324,7 +327,13 @@ int main(int, char**)
         }
 
         ImGuiViewport* ap = ImGui::GetMainViewport();
-        const float TASKBAR_H = 50.0f;   
+        const float TASKBAR_H = 50.0f;
+        const float BTN_H = TASKBAR_H - 2.0f * ImGui::GetStyle().WindowPadding.y;
+        const float img_h = BTN_H - 2.0f * style.FramePadding.y;
+        const bool bee_ok = g_bee.id != 0 && g_bee.height > 0;
+        const bool googol_ok = g_googol.id != 0 && g_googol.height > 0;
+        const float bee_w = bee_ok ? img_h * ((float)g_bee.width / (float)g_bee.height) : ImGui::CalcTextSize("Bee Movie").x;
+        const float googol_w = googol_ok ? img_h * ((float)g_googol.width / (float)g_googol.height) : ImGui::CalcTextSize("Googol Chrom").x;
 
         ImGui::SetNextWindowPos(
             ImVec2(ap->WorkPos.x, ap->WorkPos.y + ap->WorkSize.y),   
@@ -337,21 +346,44 @@ int main(int, char**)
             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
             ImGuiWindowFlags_NoScrollWithMouse);
-        const float CONTENT_W = 2.0f +                               
-            ImGui::CalcTextSize("Bee Movie").x +
-            ImGui::CalcTextSize("Googol Chrom").x +
-            ImGui::CalcTextSize("Tax Manager").x +
-            6.0f * style.FramePadding.x +                            
-            2.0f * style.ItemSpacing.x;
+        const float CONTENT_W = bee_w + 2 * style.FramePadding.x + googol_w + 2 * style.FramePadding.x
+            + ImGui::CalcTextSize("Fanum Tax Manager").x + 2 * style.FramePadding.x + 2 * style.ItemSpacing.x;
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - CONTENT_W) * 0.5f);
         ImGui::BeginChild("##botbar_center", ImVec2(CONTENT_W, 0), ImGuiChildFlags_AutoResizeY);
-        const float BTN_H = TASKBAR_H - 2.0f * ImGui::GetStyle().WindowPadding.y;
+        
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, BTN_H * 0.5f);
-        if (ImGui::Button("Bee Movie", ImVec2(0, BTN_H))) { show_bee_movie = true; }
+        if (bee_ok)
+        {
+            if (ImGui::ImageButton("##bee", (ImTextureID)(intptr_t)g_bee.id,
+                ImVec2(bee_w, img_h)))
+                show_bee_movie = true;
+        }
+        else
+        {
+            if (ImGui::Button("Bee Movie", ImVec2(0, BTN_H)))
+                show_bee_movie = true;
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetItemTooltip("Bee Movie");
         ImGui::SameLine();
-        if (ImGui::Button("Googol Chrom", ImVec2(0, BTN_H))) { show_googol = true; }
+        if (googol_ok)
+        {
+            if (ImGui::ImageButton("##googol", (ImTextureID)(intptr_t)g_googol.id,
+                ImVec2(googol_w, img_h)))
+                show_googol = true;
+        }
+        else
+        {
+            if (ImGui::Button("Googol Chrom", ImVec2(0, BTN_H)))
+                show_googol = true;
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetItemTooltip("Googol Chrom");
         ImGui::SameLine();
-        if (ImGui::Button("Tax Manager", ImVec2(0, BTN_H))) { glfwSetWindowShouldClose(window, GLFW_TRUE); }
+        if (ImGui::Button("Fanum Tax Manager", ImVec2(0, BTN_H))) // unchanged
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        if (ImGui::IsItemHovered())
+            ImGui::SetItemTooltip("Fanum Tax Manager");
         ImGui::PopStyleVar();
         ImGui::EndChild();
         ImGui::End();
@@ -378,6 +410,7 @@ int main(int, char**)
     ImGui::DestroyContext();
     glDeleteTextures(1, &g_bg.id);
     glDeleteTextures(1, &g_bee.id);
+    glDeleteTextures(1, &g_googol.id);
     glfwDestroyWindow(window);
     glfwTerminate();
 
