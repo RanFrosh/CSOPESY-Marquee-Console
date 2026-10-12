@@ -254,7 +254,11 @@ int main(int, char**)
             std::time_t t = std::chrono::system_clock::to_time_t(
                 std::chrono::system_clock::now());
             std::tm tm_now{};
-            localtime_s(&tm_now, &t);
+            #if defined(_WIN32) || defined(_WIN64)
+                localtime_s(&tm_now, &t);
+            #else
+                localtime_r(&t, &tm_now);
+            #endif
             char time_buf[64];
             std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d || %I:%M:%S %p", &tm_now);
             ImGui::Text(time_buf);
