@@ -29,5 +29,7 @@ The entry class file `M04.cpp` is located in the **M04** folder.
 To compile and run the program on **Visual Studio**, run M04.cpp after letting CMakeLists.txt cache.
 Set Visual Studio config json variable CMakeList to true.
 
-To compile and run the program on the command line or terminal, enter the following command line or terminal. <br>
-`cmake --build build`
+### Compiling and Running on MacOS
+
+To compile and run the program on the terminal, enter the following commands line or terminal. <br>
+`cmake -S .-B build` <br> `cmake --build build`
