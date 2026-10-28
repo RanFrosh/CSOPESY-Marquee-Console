@@ -70,8 +70,16 @@ int main() {
     // Command loop
     while (commandTexts.size() == 0 || commandTexts[0] != "exit") {
         cout << "\nroot:\\> ";
-        getline(cin, input);
+        // Stop when input ends
+        if (!getline(cin, input)) {
+            break;
+        }
         commandTexts = parse(input);
+
+        // Prevent crashing on empty text
+        if (commandTexts.empty()) {
+            continue;
+        }
 
         if (commandTexts[0] == "initialize") {
             initialize();
