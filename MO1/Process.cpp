@@ -233,9 +233,15 @@ public:
 
 	void runInstruction(const Instruction& instr) {
 		switch (instr.type) {
-		case InstructionType::PRINT:
-			PRINT(instr.msg);
+		case InstructionType::PRINT: {
+			// The variable's value is looked up now, when the PRINT runs
+			string msg = instr.msg;
+			if (!instr.args.empty()) {
+				msg += to_string(resolve(instr.args[0]));
+			}
+			PRINT(msg);
 			break;
+		}
 		case InstructionType::DECLARE:
 			DECLARE(get<string>(instr.args[0]), get<uint16_t>(instr.args[1]));
 			break;
