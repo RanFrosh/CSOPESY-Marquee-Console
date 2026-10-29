@@ -18,7 +18,7 @@ using namespace std;
 void enableEscapeCodes();
 void clearScreen();
 void printHeader();
-void initialize();
+bool initialize();
 void screen(const vector<string>& commandTexts, ProcessManager& manager);
 void runProcessScreen(shared_ptr<Process> process);
 void processSmi(const Process& process);
@@ -56,8 +56,11 @@ void printHeader() {
     cout << endl;
 }
 
-void initialize() {
+// Returns true only if config.txt was read successfully
+bool initialize() {
+    // Placeholder until config.txt reading is written: always succeeds
     cout << "Ran initialize!" << endl;
+    return true;
 }
 
 // screen -s <name>: create a process and enter its screen
@@ -181,6 +184,7 @@ int main() {
     // Filled in by hand until initialize reads config.txt
     Config config{ 4, "fcfs", 1, 1, 5, 20, 0 };
     ProcessManager manager(config);
+    bool initialized = false;
 
     enableEscapeCodes();
     printHeader();
@@ -199,8 +203,19 @@ int main() {
             continue;
         }
 
+        // Only initialize and exit work until config.txt has been read successfully
+        if (!initialized && commandTexts[0] != "initialize" && commandTexts[0] != "exit") {
+            cout << "Error: Please run initialize first." << endl;
+            continue;
+        }
+
         if (commandTexts[0] == "initialize") {
-            initialize();
+            if (initialized) {
+                cout << "Error: Already initialized." << endl;
+            }
+            else if (initialize()) {
+                initialized = true;
+            }
         }
         else if (commandTexts[0] == "screen") {
             screen(commandTexts, manager);
