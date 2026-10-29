@@ -1,3 +1,4 @@
+#pragma once
 #include <string>
 #include <vector>
 #include <variant>
@@ -8,16 +9,6 @@
 #include <sstream>
 #include <iostream>
 using namespace std;
-
-struct Config {
-	int numCpu;              // [1, 128]
-	string scheduler;        // "fcfs" or "rr"
-	uint64_t quantumCycles;  // [1, 2^32]
-	uint64_t batchProcessFreq;
-	uint64_t minIns;
-	uint64_t maxIns;
-	uint64_t delaysPerExec;  // [0, 2^32]
-};
 
 enum State {
 	READY,
@@ -72,7 +63,8 @@ class Process {
 private:
 	int id;
 	string name;
-	int ctr;
+	uint64_t ctr;                // instructions executed so far
+	uint64_t totalInstructions;  // instructions the whole program will execute
 	State state;
 	int core;
 	vector<Instruction> program;
@@ -93,6 +85,20 @@ private:
 		stringstream ss;
 		ss << put_time(&local, "%m/%d/%Y %I:%M:%S %p");
 		return ss.str();
+	}
+
+	// Counts instructions as executed: a FOR runs its body `repeats` times
+	static uint64_t countInstructions(const vector<Instruction>& list) {
+		uint64_t count = 0;
+		for (const Instruction& instr : list) {
+			if (instr.type == InstructionType::FOR) {
+				count += instr.repeats * countInstructions(instr.body);
+			}
+			else {
+				count++;
+			}
+		}
+		return count;
 	}
 
 	// Adds a log entry stamped with the current time and core
@@ -117,23 +123,6 @@ private:
 		declareIfMissing(var);
 		return variables[var];
 	}
-
-public:
-	Process(int param_id, string param_name, vector<Instruction> param_program) {
-		ctr = 0;
-		state = READY;
-		core = -1;
-		id = param_id;
-		name = param_name;
-		program = param_program;
-		callStack.push_back({ &program, 0, 1 });
-		sleepTicksLeft = 0;
-	}
-
-	// callStack points into program, so a Process must not be copied.
-	// Keep processes behind pointers instead, e.g. shared_ptr<Process>.
-	Process(const Process&) = delete;
-	Process& operator=(const Process&) = delete;
 
 	void PRINT(string msg) {
 		if (msg.empty()) {
@@ -181,35 +170,6 @@ public:
 		state = WAITING;
 		sleepTicksLeft = duration;
 		addLog(InstructionType::SLEEP, { uint16_t(duration) }, "SLEEP: " + to_string(duration) + " ticks");
-	}
-
-	// Called by the scheduler once per CPU tick while this process is sleeping
-	void tickSleep() {
-		if (sleepTicksLeft > 0) {
-			sleepTicksLeft--;
-		}
-		if (sleepTicksLeft == 0) {
-			state = READY;
-		}
-	}
-
-	void setCore(int param_core) {
-		core = param_core;
-	}
-
-	int getCore() {
-		return core;
-	}
-
-	// Runs one real instruction. The scheduler calls this once per CPU tick.
-	void executeNext() {
-		const Instruction* instr = nextInstruction();
-		if (instr == nullptr) {
-			state = TERMINATED;
-			return;
-		}
-		runInstruction(*instr);
-		ctr++;
 	}
 
 	// Walks the frames to the next non-FOR instruction, or nullptr when done
@@ -280,5 +240,99 @@ public:
 		case InstructionType::FOR:
 			break;  // handled in nextInstruction()
 		}
+	}
+
+public:
+	Process(int param_id, string param_name, vector<Instruction> param_program) {
+		ctr = 0;
+		state = READY;
+		core = -1;
+		id = param_id;
+		name = param_name;
+		program = param_program;
+		callStack.push_back({ &program, 0, 1 });
+		sleepTicksLeft = 0;
+		totalInstructions = countInstructions(program);
+		if (totalInstructions == 0) {
+			state = TERMINATED;
+		}
+	}
+
+	// callStack points into program, so a Process must not be copied.
+	// Keep processes behind pointers instead, e.g. shared_ptr<Process>.
+	Process(const Process&) = delete;
+	Process& operator=(const Process&) = delete;
+
+	// Runs one real instruction. The scheduler calls this once per CPU tick.
+	void executeNext() {
+		const Instruction* instr = nextInstruction();
+		if (instr == nullptr) {
+			state = TERMINATED;
+			return;
+		}
+		runInstruction(*instr);
+		ctr++;
+
+		// Finish right after the last instruction instead of on an extra tick
+		if (ctr == totalInstructions) {
+			state = TERMINATED;
+		}
+	}
+
+	// Called by the scheduler once per CPU tick while this process is sleeping
+	void tickSleep() {
+		if (sleepTicksLeft > 0) {
+			sleepTicksLeft--;
+		}
+		if (sleepTicksLeft == 0) {
+			state = READY;
+		}
+	}
+
+	// Called by the scheduler when it puts this process on a core
+	void assignCore(int param_core) {
+		core = param_core;
+		state = RUNNING;
+	}
+
+	// Called by the scheduler when it takes this process off its core.
+	// A process that fell asleep or finished keeps that state.
+	void releaseCore() {
+		core = -1;
+		if (state == RUNNING) {
+			state = READY;
+		}
+	}
+
+	int getId() const {
+		return id;
+	}
+
+	string getName() const {
+		return name;
+	}
+
+	State getState() const {
+		return state;
+	}
+
+	int getCore() const {
+		return core;
+	}
+
+	uint64_t getCtr() const {
+		return ctr;
+	}
+
+	uint64_t getTotalInstructions() const {
+		return totalInstructions;
+	}
+
+	const vector<Log>& getOutputLog() const {
+		return outputLog;
+	}
+
+	bool isFinished() const {
+		return state == TERMINATED;
 	}
 };
