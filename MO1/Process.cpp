@@ -9,6 +9,16 @@
 #include <iostream>
 using namespace std;
 
+struct Config {
+	int numCpu;              // [1, 128]
+	string scheduler;        // "fcfs" or "rr"
+	uint64_t quantumCycles;  // [1, 2^32]
+	uint64_t batchProcessFreq;
+	uint64_t minIns;
+	uint64_t maxIns;
+	uint64_t delaysPerExec;  // [0, 2^32]
+};
+
 enum State {
 	READY,
 	RUNNING,
@@ -234,10 +244,23 @@ public:
 	void runInstruction(const Instruction& instr) {
 		switch (instr.type) {
 		case InstructionType::PRINT: {
-			// The variable's value is looked up now, when the PRINT runs
+			// The variable's value is looked up now, when the PRINT runs.
+			// Unlike ADD/SUBTRACT, PRINT doesn't declare missing variables.
 			string msg = instr.msg;
 			if (!instr.args.empty()) {
-				msg += to_string(resolve(instr.args[0]));
+				const Operand& op = instr.args[0];
+				if (holds_alternative<uint16_t>(op)) {
+					msg += to_string(get<uint16_t>(op));
+				}
+				else {
+					auto found = variables.find(get<string>(op));
+					if (found == variables.end()) {
+						msg = "Variable " + get<string>(op) + " does not exist";
+					}
+					else {
+						msg += to_string(found->second);
+					}
+				}
 			}
 			PRINT(msg);
 			break;
