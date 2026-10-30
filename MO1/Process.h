@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <sstream>
 #include <iostream>
+#include <mutex>
 using namespace std;
 
 enum State {
@@ -72,6 +73,12 @@ private:
 	unordered_map<string, uint16_t> variables;
 	vector<Log> outputLog;  // shown only on the attached screen
 	uint8_t sleepTicksLeft;
+	string createdAt;  // shown by screen -ls and report-util
+
+	// The scheduler thread changes a process while the main thread may be reading it
+	// (process-smi). The mutating methods below lock this themselves; a reader on
+	// another thread locks it through getMutex().
+	mutable mutex mtx;
 
 	// Current local time as "MM/DD/YYYY hh:mm:ss AM"
 	static string currentTimestamp() {
@@ -128,7 +135,8 @@ private:
 		if (msg.empty()) {
 			msg = "Hello world from " + name;
 		}
-		cout << msg << endl;
+		// Output goes only to the log: it is shown inside the attached screen (process-smi),
+		// and a background scheduler thread must not write to the main console.
 		addLog(InstructionType::PRINT, {}, msg);
 	}
 
@@ -252,6 +260,7 @@ public:
 		program = param_program;
 		callStack.push_back({ &program, 0, 1 });
 		sleepTicksLeft = 0;
+		createdAt = currentTimestamp();
 		totalInstructions = countInstructions(program);
 		if (totalInstructions == 0) {
 			state = TERMINATED;
@@ -265,6 +274,7 @@ public:
 
 	// Runs one real instruction. The scheduler calls this once per CPU tick.
 	void executeNext() {
+		lock_guard<mutex> lock(mtx);
 		const Instruction* instr = nextInstruction();
 		if (instr == nullptr) {
 			state = TERMINATED;
@@ -281,6 +291,7 @@ public:
 
 	// Called by the scheduler once per CPU tick while this process is sleeping
 	void tickSleep() {
+		lock_guard<mutex> lock(mtx);
 		if (sleepTicksLeft > 0) {
 			sleepTicksLeft--;
 		}
@@ -291,6 +302,7 @@ public:
 
 	// Called by the scheduler when it puts this process on a core
 	void assignCore(int param_core) {
+		lock_guard<mutex> lock(mtx);
 		core = param_core;
 		state = RUNNING;
 	}
@@ -298,10 +310,20 @@ public:
 	// Called by the scheduler when it takes this process off its core.
 	// A process that fell asleep or finished keeps that state.
 	void releaseCore() {
+		lock_guard<mutex> lock(mtx);
 		core = -1;
 		if (state == RUNNING) {
 			state = READY;
 		}
+	}
+
+	// Lock this around any read of the log, counters or state from a non-scheduler thread
+	mutex& getMutex() const {
+		return mtx;
+	}
+
+	string getCreatedAt() const {
+		return createdAt;
 	}
 
 	int getId() const {
