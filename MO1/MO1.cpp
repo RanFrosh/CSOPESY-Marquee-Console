@@ -8,9 +8,13 @@
 #include <sstream>
 #include <vector>
 #include <memory>
+#include <mutex>
+#include <fstream>
 #include "Config.h"
+#include "ConfigLoader.h"
 #include "Process.h"
 #include "ProcessManager.h"
+#include "Scheduler.h"
 using namespace std;
 
 
@@ -18,13 +22,13 @@ using namespace std;
 void enableEscapeCodes();
 void clearScreen();
 void printHeader();
-bool initialize();
-void screen(const vector<string>& commandTexts, ProcessManager& manager);
+bool initialize(unique_ptr<ProcessManager>& manager, unique_ptr<Scheduler>& scheduler);
+void screen(const vector<string>& commandTexts, ProcessManager& manager, Scheduler& scheduler);
 void runProcessScreen(shared_ptr<Process> process);
 void processSmi(const Process& process);
-void scheduler_start();
-void scheduler_stop();
-void report_util();
+void scheduler_start(Scheduler& scheduler);
+void scheduler_stop(Scheduler& scheduler);
+void report_util(Scheduler& scheduler);
 vector<string> parse(string input);
 
 
@@ -56,18 +60,31 @@ void printHeader() {
     cout << endl;
 }
 
-// Returns true only if config.txt was read successfully
-bool initialize() {
-    // Placeholder until config.txt reading is written: always succeeds
-    cout << "Ran initialize!" << endl;
+// Reads config.txt, then creates the process manager and starts the CPU thread.
+// Returns true only if config.txt was read successfully.
+bool initialize(unique_ptr<ProcessManager>& manager, unique_ptr<Scheduler>& scheduler) {
+    Config config;
+    string error;
+
+    if (!loadConfig("config.txt", config, error)) {
+        cout << "Error: " << error << endl;
+        return false;
+    }
+
+    manager = make_unique<ProcessManager>(config);
+    scheduler = make_unique<Scheduler>(config, *manager);
+    scheduler->start();
+
+    cout << "Initialized: " << config.numCpu << " CPU(s), " << config.scheduler << " scheduler." << endl;
     return true;
 }
 
 // screen -s <name>: create a process and enter its screen
 // screen -r <name>: enter an existing, unfinished process's screen
-void screen(const vector<string>& commandTexts, ProcessManager& manager) {
+// screen -ls: show CPU utilization and the running and finished processes
+void screen(const vector<string>& commandTexts, ProcessManager& manager, Scheduler& scheduler) {
     if (commandTexts.size() == 2 && commandTexts[1] == "-ls") {
-        cout << "screen -ls is not available yet." << endl;  // needs the scheduler
+        cout << scheduler.buildReport();
         return;
     }
     if (commandTexts.size() < 3 || (commandTexts[1] != "-s" && commandTexts[1] != "-r")) {
@@ -84,11 +101,18 @@ void screen(const vector<string>& commandTexts, ProcessManager& manager) {
             cout << "Process " << name << " already exists." << endl;
             return;
         }
-        // Once the scheduler exists, add the process to its ready queue here
+        scheduler.enqueue(process);
     }
     else {
         process = manager.find(name);
-        if (process == nullptr || process->isFinished()) {
+
+        bool available = process != nullptr;
+        if (available) {
+            // The scheduler thread may be finishing this process right now
+            lock_guard<mutex> lock(process->getMutex());
+            available = !process->isFinished();
+        }
+        if (!available) {
             cout << "Process " << name << " not found." << endl;
             return;
         }
@@ -133,6 +157,9 @@ void runProcessScreen(shared_ptr<Process> process) {
 }
 
 void processSmi(const Process& process) {
+    // The scheduler thread may be running this process right now
+    lock_guard<mutex> lock(process.getMutex());
+
     cout << "Process name: " << process.getName() << endl;
     cout << "ID: " << process.getId() << endl;
     cout << "Logs:" << endl;
@@ -152,16 +179,34 @@ void processSmi(const Process& process) {
     }
 }
 
-void scheduler_start() {
-    cout << "Ran scheduler start!" << endl;
+void scheduler_start(Scheduler& scheduler) {
+    if (scheduler.startGenerating()) {
+        cout << "Generating dummy processes." << endl;
+    }
+    else {
+        cout << "Already generating dummy processes." << endl;
+    }
 }
 
-void scheduler_stop() {
-    cout << "Ran scheduler stop!" << endl;
+void scheduler_stop(Scheduler& scheduler) {
+    if (scheduler.stopGenerating()) {
+        cout << "Stopped generating dummy processes." << endl;
+    }
+    else {
+        cout << "Not generating dummy processes." << endl;
+    }
 }
 
-void report_util() {
-    cout << "Ran report util!" << endl;
+// Saves the same information as screen -ls to a file
+void report_util(Scheduler& scheduler) {
+    ofstream file("csopesy-log.txt");
+    if (!file.is_open()) {
+        cout << "Error: Could not open csopesy-log.txt." << endl;
+        return;
+    }
+
+    file << scheduler.buildReport();
+    cout << "Report saved to csopesy-log.txt." << endl;
 }
 
 vector<string> parse(string input) {
@@ -181,9 +226,10 @@ int main() {
 	string input;
     vector<string> commandTexts;
 
-    // Filled in by hand until initialize reads config.txt
-    Config config{ 4, "fcfs", 1, 1, 5, 20, 0 };
-    ProcessManager manager(config);
+    // Both stay empty until initialize succeeds. The scheduler uses the manager,
+    // so it is declared after it and gets destroyed (and stopped) first.
+    unique_ptr<ProcessManager> manager;
+    unique_ptr<Scheduler> scheduler;
     bool initialized = false;
 
     enableEscapeCodes();
@@ -213,24 +259,24 @@ int main() {
             if (initialized) {
                 cout << "Error: Already initialized." << endl;
             }
-            else if (initialize()) {
+            else if (initialize(manager, scheduler)) {
                 initialized = true;
             }
         }
         else if (commandTexts[0] == "screen") {
-            screen(commandTexts, manager);
+            screen(commandTexts, *manager, *scheduler);
         }
         else if (commandTexts[0] == "scheduler-start") {
-            scheduler_start();
+            scheduler_start(*scheduler);
         }
         else if (commandTexts[0] == "scheduler-stop") {
-            scheduler_stop();
+            scheduler_stop(*scheduler);
         }
         else if (commandTexts[0] == "report-util") {
-            report_util();
+            report_util(*scheduler);
         }
         else if (commandTexts[0] == "exit") {
-            exit(0);
+            break;  // not exit(0), which would skip stopping the scheduler thread
         }
         else {
             cout << "Error: Unrecognized command." << endl;

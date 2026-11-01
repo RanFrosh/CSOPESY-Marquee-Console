@@ -18,7 +18,7 @@ using namespace std;
 // Real-time CPU scheduler. One background thread counts CPU cycles; every cycle each
 // core runs at most one instruction of the process it holds. Supports first come first served (fcfs) and round robin (rr). The scheduler is responsible for:
 //
-// Per cycle: wake sleepers -> fill idle cores from the ready queue -> run every core
+// Per cycle: fill idle cores from the ready queue -> wake sleepers -> run every core
 //            -> cpuCycles++ -> (if generating) create a dummy process every
 //            batch-process-freq cycles.
 class Scheduler {
@@ -133,8 +133,10 @@ private:
 	void tick() {
 		lock_guard<mutex> lock(mtx);
 
-		wakeSleepers();
+		// Dispatch before waking: a process that wakes this cycle only gets a core next
+		// cycle, so SLEEP(X) sits out exactly X cycles.
 		dispatch();
+		wakeSleepers();
 		runCores();
 		cpuCycles++;
 

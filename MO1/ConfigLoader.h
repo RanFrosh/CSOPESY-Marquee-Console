@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 #include <fstream>
 #include <unordered_map>
 #include <algorithm>
@@ -41,7 +42,7 @@ inline bool parseNumber(const string& text, uint64_t lo, uint64_t hi, uint64_t& 
 // missing parameter, or a value is out of range. `out` is only changed on success.
 inline bool loadConfig(const string& path, Config& out, string& error) {
 	ifstream file(path);
-	if (!file) {
+	if (!file.is_open()) {
 		error = "Could not open " + path + ".";
 		return false;
 	}
