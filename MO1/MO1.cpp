@@ -55,7 +55,7 @@ void printHeader() {
     cout << "==============================" << endl;
     cout << "Welcome to CSOPESY Emulator!" << endl;
     cout << "Group developers: \nChu, Avery\nSia, Justin\nTan, Paul\nTiu, Avram\n" << endl;
-    cout << "Last updated: October 27, 2026" << endl;
+    cout << "Last updated: November 1, 2026" << endl;
     cout << "------------------------------" << endl;
     cout << endl;
 }
