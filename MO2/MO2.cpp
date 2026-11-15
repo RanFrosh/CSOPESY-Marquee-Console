@@ -27,6 +27,7 @@ void screen(const vector<string>& commandTexts, ProcessManager& manager, Schedul
 void runProcessScreen(shared_ptr<Process> process);
 void processSmi(const Process& process);
 void processSmiMain(Scheduler& scheduler);
+void vmstat(Scheduler& scheduler);
 void scheduler_start(Scheduler& scheduler);
 void scheduler_stop(Scheduler& scheduler);
 void report_util(Scheduler& scheduler);
@@ -194,6 +195,11 @@ void processSmiMain(Scheduler& scheduler) {
     cout << scheduler.buildMemoryReport();
 }
 
+// Memory and per-core CPU tick totals
+void vmstat(Scheduler& scheduler) {
+    cout << scheduler.buildVmstat();
+}
+
 void scheduler_start(Scheduler& scheduler) {
     if (scheduler.startGenerating()) {
         cout << "Generating dummy processes." << endl;
@@ -297,6 +303,9 @@ int main() {
         }
         else if (commandTexts[0] == "process-smi") {
             processSmiMain(*scheduler);
+        }
+        else if (commandTexts[0] == "vmstat") {
+            vmstat(*scheduler);
         }
         else if (commandTexts[0] == "exit") {
             break;  // not exit(0), which would skip stopping the scheduler thread

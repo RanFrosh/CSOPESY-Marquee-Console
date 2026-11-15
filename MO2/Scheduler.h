@@ -47,6 +47,8 @@ private:
 	vector<shared_ptr<Process>> finished;   // in order of completion
 	uint64_t cpuCycles;
 	uint64_t memoryUsed;                    // bytes held by every process that hasn't terminated
+	uint64_t idleTicks;                     // one per empty core per cycle
+	uint64_t activeTicks;                   // one per occupied core per cycle, busy-waiting included
 
 	thread worker;
 	atomic<bool> alive;
@@ -121,8 +123,10 @@ private:
 	void runCores() {
 		for (Core& core : cores) {
 			if (core.process == nullptr) {
+				idleTicks++;
 				continue;
 			}
+			activeTicks++;  // holding a process counts as active, even while busy-waiting
 			shared_ptr<Process> p = core.process;
 
 			if (core.delayLeft > 0) {
@@ -199,7 +203,8 @@ private:
 public:
 	Scheduler(const Config& param_config, ProcessManager& param_manager)
 		: config(param_config), manager(param_manager), cores(param_config.numCpu),
-		  cpuCycles(0), memoryUsed(0), alive(false), generating(false), memoryLimitHit(false) {
+		  cpuCycles(0), memoryUsed(0), idleTicks(0), activeTicks(0),
+		  alive(false), generating(false), memoryLimitHit(false) {
 	}
 
 	~Scheduler() {
@@ -311,6 +316,21 @@ public:
 			}
 		}
 		out << "--------------------------------------\n";
+		return out.str();
+	}
+
+	// Text for vmstat. Ticks are counted per core, so total = cpu cycles * num-cpu = idle + active.
+	string buildVmstat() {
+		lock_guard<mutex> lock(mtx);  // the CPU thread is paused while we read
+
+		stringstream out;
+		out << "Used memory: " << memoryUsed << " B\n";
+		out << "Free memory: " << (config.maxOverallMem - memoryUsed) << " B\n";
+		out << "Idle cpu ticks: " << idleTicks << "\n";
+		out << "Active cpu ticks: " << activeTicks << "\n";
+		out << "Total cpu ticks: " << (idleTicks + activeTicks) << "\n";
+		out << "Num paged in: TBA\n";   // until paging is implemented
+		out << "Num paged out: TBA\n";
 		return out.str();
 	}
 };
