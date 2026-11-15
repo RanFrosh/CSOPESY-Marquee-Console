@@ -21,6 +21,10 @@ using namespace std;
 // Per cycle: fill idle cores from the ready queue -> wake sleepers -> run every core
 //            -> cpuCycles++ -> (if generating) create a dummy process every
 //            batch-process-freq cycles.
+//
+// Memory: a process holds its memory from creation until it terminates, whether it is
+// running, ready or sleeping. Memory is reserved before a process is created, so one
+// that doesn't fit is never created.
 class Scheduler {
 private:
 	// How long one CPU cycle lasts in real time. Only changes how fast things look,
@@ -42,13 +46,35 @@ private:
 	vector<shared_ptr<Process>> sleeping;   // gave up the CPU with SLEEP
 	vector<shared_ptr<Process>> finished;   // in order of completion
 	uint64_t cpuCycles;
+	uint64_t memoryUsed;                    // bytes held by every process that hasn't terminated
 
 	thread worker;
 	atomic<bool> alive;
 	atomic<bool> generating;
+	atomic<bool> memoryLimitHit;            // set when generation stopped for lack of memory
 
 	bool isRoundRobin() const {
 		return config.scheduler == "rr";
+	}
+
+	bool fits(uint64_t mem) const {
+		return memoryUsed + mem <= config.maxOverallMem;
+	}
+
+	// Every way into `finished` goes through here, so each process's memory is freed exactly once
+	void finish(shared_ptr<Process> p) {
+		finished.push_back(p);
+		memoryUsed -= p->getMem();
+	}
+
+	int coresUsed() const {
+		int used = 0;
+		for (const Core& core : cores) {
+			if (core.process != nullptr) {
+				used++;
+			}
+		}
+		return used;
 	}
 
 	// SLEEP counts down once per cycle; a process that wakes up rejoins the ready queue
@@ -74,7 +100,7 @@ private:
 				readyQueue.pop_front();
 
 				if (next->isFinished()) {  // e.g. a program with nothing to run
-					finished.push_back(next);
+					finish(next);
 					continue;
 				}
 				next->assignCore(int(i));
@@ -109,7 +135,7 @@ private:
 
 			if (p->isFinished()) {
 				vacate(core);
-				finished.push_back(p);
+				finish(p);
 			}
 			else if (p->getState() == WAITING) {  // executed SLEEP, so give the core up
 				vacate(core);
@@ -141,8 +167,17 @@ private:
 		cpuCycles++;
 
 		if (generating && cpuCycles % config.batchProcessFreq == 0) {
-			shared_ptr<Process> created = manager.createAutoProcess();
-			readyQueue.push_back(created);
+			uint64_t mem = manager.rollMemory();
+			if (fits(mem)) {
+				memoryUsed += mem;
+				readyQueue.push_back(manager.createAutoProcess(mem));
+			}
+			else {
+				// Temporary until paging: stop generating instead of waiting for memory.
+				// The main menu prints the message, since this thread must not write to the console.
+				generating = false;
+				memoryLimitHit = true;
+			}
 		}
 	}
 
@@ -164,7 +199,7 @@ private:
 public:
 	Scheduler(const Config& param_config, ProcessManager& param_manager)
 		: config(param_config), manager(param_manager), cores(param_config.numCpu),
-		  cpuCycles(0), alive(false), generating(false) {
+		  cpuCycles(0), memoryUsed(0), alive(false), generating(false), memoryLimitHit(false) {
 	}
 
 	~Scheduler() {
@@ -189,15 +224,37 @@ public:
 		}
 	}
 
-	// Puts a process in the ready queue (used by screen -s)
+	// screen -s: takes `mem` bytes before the process is created.
+	// Returns false, taking nothing, if there isn't enough memory left.
+	bool reserve(uint64_t mem) {
+		lock_guard<mutex> lock(mtx);
+		if (!fits(mem)) {
+			return false;
+		}
+		memoryUsed += mem;
+		return true;
+	}
+
+	// screen -s: gives back a reservation whose process was never created (name already taken)
+	void release(uint64_t mem) {
+		lock_guard<mutex> lock(mtx);
+		memoryUsed -= mem;
+	}
+
+	// Puts a process in the ready queue (used by screen -s, after reserve)
 	void enqueue(shared_ptr<Process> process) {
 		lock_guard<mutex> lock(mtx);
 		if (process->isFinished()) {
-			finished.push_back(process);
+			finish(process);
 		}
 		else {
 			readyQueue.push_back(process);
 		}
+	}
+
+	// True once after generation stopped for lack of memory; reading it clears it
+	bool takeMemoryLimitHit() {
+		return memoryLimitHit.exchange(false);
 	}
 
 	// scheduler-start / scheduler-stop. Return false if already in that state.
@@ -213,12 +270,7 @@ public:
 	string buildReport() {
 		lock_guard<mutex> lock(mtx);  // the CPU thread is paused while we read
 
-		int used = 0;
-		for (const Core& core : cores) {
-			if (core.process != nullptr) {
-				used++;
-			}
-		}
+		int used = coresUsed();
 		int total = int(cores.size());
 
 		stringstream out;
@@ -237,6 +289,26 @@ public:
 		out << "\nFinished processes:\n";
 		for (const shared_ptr<Process>& p : finished) {
 			printProcessLine(out, *p, "Finished");
+		}
+		out << "--------------------------------------\n";
+		return out.str();
+	}
+
+	// Text for process-smi on the main menu: CPU and memory use, then each running process's memory
+	string buildMemoryReport() {
+		lock_guard<mutex> lock(mtx);  // the CPU thread is paused while we read
+
+		stringstream out;
+		out << "CPU utilization: " << (coresUsed() * 100 / int(cores.size())) << "%\n";
+		out << "Memory Usage: " << memoryUsed << " B / " << config.maxOverallMem << " B\n";
+		out << "Memory Util: " << (memoryUsed * 100 / config.maxOverallMem) << "%\n\n";
+		out << "--------------------------------------\n";
+
+		out << "Running processes and memory usage:\n";
+		for (const Core& core : cores) {
+			if (core.process != nullptr) {
+				out << left << setw(12) << core.process->getName() << core.process->getMem() << " B\n";
+			}
 		}
 		out << "--------------------------------------\n";
 		return out.str();

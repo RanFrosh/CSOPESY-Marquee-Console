@@ -15,8 +15,8 @@ using namespace std;
 // Used by screen -s / -r / -ls, scheduler-start and report-util.
 class ProcessManager {
 private:
-	Config config;                                               // for min-ins and max-ins
-	mt19937_64 rng;                                              // one generator for every program
+	Config config;                                               // for the instruction and memory limits
+	mt19937_64 rng;                                              // one generator for every program and memory size
 	vector<shared_ptr<Process>> processes;                       // in creation order, for listings
 	unordered_map<string, shared_ptr<Process>> processesByName;  // for lookups by name
 	int nextId;                                                  // shared by screen -s and scheduler-start
@@ -28,10 +28,10 @@ private:
 		return "p" + string(number < 10 ? "0" : "") + to_string(number);
 	}
 
-	// Creates, numbers and stores a process with a random program.
+	// Creates, numbers and stores a process with a random program and `mem` bytes of memory.
 	// The caller must already hold mtx and have checked the name is free.
-	shared_ptr<Process> addProcess(const string& name) {
-		auto process = make_shared<Process>(nextId, name, generateProgram(rng, config.minIns, config.maxIns));
+	shared_ptr<Process> addProcess(const string& name, uint64_t mem) {
+		auto process = make_shared<Process>(nextId, name, generateProgram(rng, config.minIns, config.maxIns), mem);
 		nextId++;
 		processes.push_back(process);
 		processesByName[name] = process;
@@ -46,19 +46,26 @@ public:
 		nextAutoNumber = 1;
 	}
 
+	// A random memory size from min-mem-per-proc to max-mem-per-proc. Rolled before the
+	// process is created, so the scheduler can reject it without creating anything.
+	uint64_t rollMemory() {
+		lock_guard<mutex> lock(mtx);
+		return randomBetween(rng, config.minMemPerProc, config.maxMemPerProc);
+	}
+
 	// For screen -s. Returns nullptr if a process with this name already exists.
-	shared_ptr<Process> createProcess(const string& name) {
+	shared_ptr<Process> createProcess(const string& name, uint64_t mem) {
 		lock_guard<mutex> lock(mtx);
 
 		if (processesByName.find(name) != processesByName.end()) {
 			return nullptr;
 		}
-		return addProcess(name);
+		return addProcess(name, mem);
 	}
 
 	// For scheduler-start. Uses the next pNN name that isn't taken,
 	// skipping any the user already created with screen -s.
-	shared_ptr<Process> createAutoProcess() {
+	shared_ptr<Process> createAutoProcess(uint64_t mem) {
 		lock_guard<mutex> lock(mtx);
 
 		string name;
@@ -67,7 +74,7 @@ public:
 			nextAutoNumber++;
 		} while (processesByName.find(name) != processesByName.end());
 
-		return addProcess(name);
+		return addProcess(name, mem);
 	}
 
 	// Returns the process with this name, finished or not, or nullptr if there isn't one.

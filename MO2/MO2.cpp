@@ -26,6 +26,7 @@ bool initialize(unique_ptr<ProcessManager>& manager, unique_ptr<Scheduler>& sche
 void screen(const vector<string>& commandTexts, ProcessManager& manager, Scheduler& scheduler);
 void runProcessScreen(shared_ptr<Process> process);
 void processSmi(const Process& process);
+void processSmiMain(Scheduler& scheduler);
 void scheduler_start(Scheduler& scheduler);
 void scheduler_stop(Scheduler& scheduler);
 void report_util(Scheduler& scheduler);
@@ -96,8 +97,16 @@ void screen(const vector<string>& commandTexts, ProcessManager& manager, Schedul
     shared_ptr<Process> process;
 
     if (commandTexts[1] == "-s") {
-        process = manager.createProcess(name);
+        // Memory is taken before the process is created, so a rejected one never exists
+        uint64_t mem = manager.rollMemory();
+        if (!scheduler.reserve(mem)) {
+            cout << "Process creation rejected due to a lack of memory." << endl;
+            return;
+        }
+
+        process = manager.createProcess(name, mem);
         if (process == nullptr) {
+            scheduler.release(mem);
             cout << "Process " << name << " already exists." << endl;
             return;
         }
@@ -179,6 +188,12 @@ void processSmi(const Process& process) {
     }
 }
 
+// The main menu's process-smi: CPU and memory use, and the memory of each running process.
+// Inside a process screen, process-smi calls processSmi instead.
+void processSmiMain(Scheduler& scheduler) {
+    cout << scheduler.buildMemoryReport();
+}
+
 void scheduler_start(Scheduler& scheduler) {
     if (scheduler.startGenerating()) {
         cout << "Generating dummy processes." << endl;
@@ -237,6 +252,11 @@ int main() {
 
     // Command loop
     while (commandTexts.size() == 0 || commandTexts[0] != "exit") {
+        // Generation stops on the CPU thread, which can't print, so the main menu reports it
+        if (scheduler && scheduler->takeMemoryLimitHit()) {
+            cout << "scheduler-stop automatically fired due to hitting memory limit." << endl;
+        }
+
         cout << "\nroot:\\> ";
         // Stop when input ends
         if (!getline(cin, input)) {
@@ -274,6 +294,9 @@ int main() {
         }
         else if (commandTexts[0] == "report-util") {
             report_util(*scheduler);
+        }
+        else if (commandTexts[0] == "process-smi") {
+            processSmiMain(*scheduler);
         }
         else if (commandTexts[0] == "exit") {
             break;  // not exit(0), which would skip stopping the scheduler thread

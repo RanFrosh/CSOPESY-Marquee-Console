@@ -74,6 +74,7 @@ private:
 	vector<Log> outputLog;  // shown only on the attached screen
 	uint8_t sleepTicksLeft;
 	string createdAt;  // shown by screen -ls and report-util
+	uint64_t mem;      // bytes of memory this process holds until it terminates; never changes
 
 	// The scheduler thread changes a process while the main thread may be reading it
 	// (process-smi). The mutating methods below lock this themselves; a reader on
@@ -251,12 +252,13 @@ private:
 	}
 
 public:
-	Process(int param_id, string param_name, vector<Instruction> param_program) {
+	Process(int param_id, string param_name, vector<Instruction> param_program, uint64_t param_mem) {
 		ctr = 0;
 		state = READY;
 		core = -1;
 		id = param_id;
 		name = param_name;
+		mem = param_mem;
 		program = param_program;
 		callStack.push_back({ &program, 0, 1 });
 		variables["x"] = 0;  // every process starts with x = 0 in its symbol table
@@ -349,6 +351,11 @@ public:
 
 	uint64_t getTotalInstructions() const {
 		return totalInstructions;
+	}
+
+	// Safe to read without the mutex, since mem never changes after construction
+	uint64_t getMem() const {
+		return mem;
 	}
 
 	const vector<Log>& getOutputLog() const {

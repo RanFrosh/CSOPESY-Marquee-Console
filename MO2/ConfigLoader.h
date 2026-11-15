@@ -140,6 +140,10 @@ inline bool loadConfig(const string& path, Config& out, string& error) {
 		error = "min-mem-per-proc must not be greater than max-mem-per-proc.";
 		return false;
 	}
+	if (result.minMemPerProc > result.maxOverallMem) {
+		error = "min-mem-per-proc must not be greater than max-overall-mem.";  // no process could ever fit
+		return false;
+	}
 
 	out = result;
 	return true;
