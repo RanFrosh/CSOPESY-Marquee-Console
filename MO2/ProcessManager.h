@@ -6,6 +6,7 @@
 #include <random>
 #include <mutex>
 #include <cstdint>
+#include <bit>
 #include "Config.h"
 #include "Process.h"
 #include "Generator.h"
@@ -46,11 +47,15 @@ public:
 		nextAutoNumber = 1;
 	}
 
-	// A random memory size from min-mem-per-proc to max-mem-per-proc. Rolled before the
+	// A random power of 2 from min-mem-per-proc to max-mem-per-proc. Rolled before the
 	// process is created, so the scheduler can reject it without creating anything.
+	// Both limits are powers of 2 (checked at initialize), so rolling the exponent
+	// gives every power of 2 in between the same chance: 256 to 1024 -> 256, 512 or 1024.
 	uint64_t rollMemory() {
 		lock_guard<mutex> lock(mtx);
-		return randomBetween(rng, config.minMemPerProc, config.maxMemPerProc);
+		int minExponent = countr_zero(config.minMemPerProc);
+		int maxExponent = countr_zero(config.maxMemPerProc);
+		return uint64_t(1) << randomBetween(rng, minExponent, maxExponent);
 	}
 
 	// For screen -s. Returns nullptr if a process with this name already exists.

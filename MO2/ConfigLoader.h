@@ -116,24 +116,28 @@ inline bool loadConfig(const string& path, Config& out, string& error) {
 		return false;
 	}
 
-	if (!parseNumber(values["max-overall-mem"], 1, CONFIG_MAX, result.maxOverallMem)) {
-		error = "max-overall-mem must be a whole number from 1 to 2^32.";
+	if (!parseNumber(values["max-overall-mem"], 1, CONFIG_MAX, result.maxOverallMem)
+		|| !isPowerOfTwo(result.maxOverallMem)) {
+		error = "max-overall-mem must be a power of 2 from 1 to 2^32.";
 		return false;
 	}
-	if (!parseNumber(values["mem-per-frame"], 1, CONFIG_MAX, result.memPerFrame)) {
-		error = "mem-per-frame must be a whole number from 1 to 2^32.";
+	if (!parseNumber(values["mem-per-frame"], 1, CONFIG_MAX, result.memPerFrame)
+		|| !isPowerOfTwo(result.memPerFrame)) {
+		error = "mem-per-frame must be a power of 2 from 1 to 2^32.";
 		return false;
 	}
 	if (result.memPerFrame > result.maxOverallMem) {
 		error = "mem-per-frame must not be greater than max-overall-mem.";  // at least one frame
 		return false;
 	}
-	if (!parseNumber(values["min-mem-per-proc"], 1, CONFIG_MAX, result.minMemPerProc)) {
-		error = "min-mem-per-proc must be a whole number from 1 to 2^32.";
+	if (!parseNumber(values["min-mem-per-proc"], MIN_PROC_MEM, MAX_PROC_MEM, result.minMemPerProc)
+		|| !isPowerOfTwo(result.minMemPerProc)) {
+		error = "min-mem-per-proc must be a power of 2 from 2^6 to 2^16.";
 		return false;
 	}
-	if (!parseNumber(values["max-mem-per-proc"], 1, CONFIG_MAX, result.maxMemPerProc)) {
-		error = "max-mem-per-proc must be a whole number from 1 to 2^32.";
+	if (!parseNumber(values["max-mem-per-proc"], MIN_PROC_MEM, MAX_PROC_MEM, result.maxMemPerProc)
+		|| !isPowerOfTwo(result.maxMemPerProc)) {
+		error = "max-mem-per-proc must be a power of 2 from 2^6 to 2^16.";
 		return false;
 	}
 	if (result.minMemPerProc > result.maxMemPerProc) {

@@ -81,7 +81,7 @@ bool initialize(unique_ptr<ProcessManager>& manager, unique_ptr<Scheduler>& sche
     return true;
 }
 
-// screen -s <name>: create a process and enter its screen
+// screen -s <name> <memory size>: create a process with that many bytes and enter its screen
 // screen -r <name>: enter an existing, unfinished process's screen
 // screen -ls: show CPU utilization and the running and finished processes
 void screen(const vector<string>& commandTexts, ProcessManager& manager, Scheduler& scheduler) {
@@ -89,17 +89,26 @@ void screen(const vector<string>& commandTexts, ProcessManager& manager, Schedul
         cout << scheduler.buildReport();
         return;
     }
-    if (commandTexts.size() < 3 || (commandTexts[1] != "-s" && commandTexts[1] != "-r")) {
-        cout << "Usage: screen -s <process name> | screen -r <process name> | screen -ls" << endl;
+
+    bool create = commandTexts.size() >= 4 && commandTexts[1] == "-s";
+    bool reattach = commandTexts.size() >= 3 && commandTexts[1] == "-r";
+    if (!create && !reattach) {
+        cout << "Usage: screen -s <process name> <memory size> | screen -r <process name> | screen -ls" << endl;
         return;
     }
 
     const string& name = commandTexts[2];
     shared_ptr<Process> process;
 
-    if (commandTexts[1] == "-s") {
+    if (create) {
+        // A power of 2 from 2^6 to 2^16 bytes
+        uint64_t mem = 0;
+        if (!parseNumber(commandTexts[3], MIN_PROC_MEM, MAX_PROC_MEM, mem) || !isPowerOfTwo(mem)) {
+            cout << "invalid memory allocation" << endl;
+            return;
+        }
+
         // Memory is taken before the process is created, so a rejected one never exists
-        uint64_t mem = manager.rollMemory();
         if (!scheduler.reserve(mem)) {
             cout << "Process creation rejected due to a lack of memory." << endl;
             return;
