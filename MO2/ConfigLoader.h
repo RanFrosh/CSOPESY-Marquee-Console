@@ -49,7 +49,8 @@ inline bool loadConfig(const string& path, Config& out, string& error) {
 
 	const vector<string> required = {
 		"num-cpu", "scheduler", "quantum-cycles", "batch-process-freq",
-		"min-ins", "max-ins", "delay-per-exec"
+		"min-ins", "max-ins", "delay-per-exec",
+		"max-overall-mem", "mem-per-frame", "min-mem-per-proc", "max-mem-per-proc"
 	};
 
 	unordered_map<string, string> values;
@@ -112,6 +113,31 @@ inline bool loadConfig(const string& path, Config& out, string& error) {
 	}
 	if (!parseNumber(values["delay-per-exec"], 0, CONFIG_MAX, result.delaysPerExec)) {
 		error = "delay-per-exec must be a whole number from 0 to 2^32.";
+		return false;
+	}
+
+	if (!parseNumber(values["max-overall-mem"], 1, CONFIG_MAX, result.maxOverallMem)) {
+		error = "max-overall-mem must be a whole number from 1 to 2^32.";
+		return false;
+	}
+	if (!parseNumber(values["mem-per-frame"], 1, CONFIG_MAX, result.memPerFrame)) {
+		error = "mem-per-frame must be a whole number from 1 to 2^32.";
+		return false;
+	}
+	if (result.memPerFrame > result.maxOverallMem) {
+		error = "mem-per-frame must not be greater than max-overall-mem.";  // at least one frame
+		return false;
+	}
+	if (!parseNumber(values["min-mem-per-proc"], 1, CONFIG_MAX, result.minMemPerProc)) {
+		error = "min-mem-per-proc must be a whole number from 1 to 2^32.";
+		return false;
+	}
+	if (!parseNumber(values["max-mem-per-proc"], 1, CONFIG_MAX, result.maxMemPerProc)) {
+		error = "max-mem-per-proc must be a whole number from 1 to 2^32.";
+		return false;
+	}
+	if (result.minMemPerProc > result.maxMemPerProc) {
+		error = "min-mem-per-proc must not be greater than max-mem-per-proc.";
 		return false;
 	}
 
