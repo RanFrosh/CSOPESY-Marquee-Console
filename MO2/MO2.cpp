@@ -151,12 +151,7 @@ void screen(const vector<string>& commandTexts, const string& input, ProcessMana
             return;
         }
 
-        // Memory is taken before the process is created, so a rejected one never exists
-        if (!scheduler.reserve(mem)) {
-            cout << "Process creation rejected due to a lack of memory." << endl;
-            return;
-        }
-
+        // With demand paging, creation never fails for lack of memory: pages load as they are used
         if (custom) {
             process = manager.createCustomProcess(name, mem, program);
         }
@@ -164,7 +159,6 @@ void screen(const vector<string>& commandTexts, const string& input, ProcessMana
             process = manager.createProcess(name, mem);
         }
         if (process == nullptr) {
-            scheduler.release(mem);
             cout << "Process " << name << " already exists." << endl;
             return;
         }
@@ -172,14 +166,18 @@ void screen(const vector<string>& commandTexts, const string& input, ProcessMana
     }
     else {
         process = manager.find(name);
-
-        bool available = process != nullptr;
-        if (available) {
-            // The scheduler thread may be finishing this process right now
-            lock_guard<mutex> lock(process->getMutex());
-            available = !process->isFinished();
+        if (process == nullptr) {
+            cout << "Process " << name << " not found." << endl;
+            return;
         }
-        if (!available) {
+
+        // The scheduler thread may be finishing this process right now
+        lock_guard<mutex> lock(process->getMutex());
+        if (process->isViolated()) {
+            cout << process->getViolationMessage() << endl;
+            return;
+        }
+        if (process->isFinished()) {
             cout << "Process " << name << " not found." << endl;
             return;
         }
@@ -237,7 +235,10 @@ void processSmi(const Process& process) {
     }
     cout << endl;
 
-    if (process.isFinished()) {
+    if (process.isViolated()) {
+        cout << process.getViolationMessage() << endl;
+    }
+    else if (process.isFinished()) {
         cout << "Finished!" << endl;
     }
     else {
@@ -315,11 +316,6 @@ int main() {
 
     // Command loop
     while (commandTexts.size() == 0 || commandTexts[0] != "exit") {
-        // Generation stops on the CPU thread, which can't print, so the main menu reports it
-        if (scheduler && scheduler->takeMemoryLimitHit()) {
-            cout << "scheduler-stop automatically fired due to hitting memory limit." << endl;
-        }
-
         cout << "\nroot:\\> ";
         // Stop when input ends
         if (!getline(cin, input)) {

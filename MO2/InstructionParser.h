@@ -19,9 +19,11 @@ const uint64_t MAX_USER_INSTRUCTIONS = 50;
 //   instr   := DECLARE name number
 //            | ADD name operand operand | SUBTRACT name operand operand
 //            | SLEEP number
+//            | READ name address | WRITE address operand
 //            | PRINT "(" [ string ] [ "+" name ] ")"   (or PRINT(name))
 //            | FOR "(" "[" instr ( "," instr )* "]" "," number ")"
 //   operand := number | name
+//   address := hex, e.g. 0x500 (whether it is inside the process's memory is checked when it runs)
 //
 // Names are letters, digits and _, not starting with a digit, so "10" is always a number.
 class InstructionParser {
@@ -86,6 +88,25 @@ private:
 			return false;
 		}
 		out = value;
+		return true;
+	}
+
+	// 0x followed by 1 to 16 hex digits
+	bool readAddress(uint64_t& out) {
+		skipSpaces();
+		if (pos + 1 >= text.size() || text[pos] != '0' || (text[pos + 1] != 'x' && text[pos + 1] != 'X')) {
+			return false;
+		}
+		size_t start = pos + 2;
+		size_t end = start;
+		while (end < text.size() && isxdigit(static_cast<unsigned char>(text[end]))) {
+			end++;
+		}
+		if (end == start || end - start > 16) {
+			return false;
+		}
+		out = stoull(text.substr(start, end - start), nullptr, 16);
+		pos = end;
 		return true;
 	}
 
@@ -217,13 +238,31 @@ private:
 			list.push_back({ InstructionType::SLEEP, { uint16_t(ticks) } });
 			return true;
 		}
+		if (keyword == "READ") {
+			string var;
+			uint64_t address = 0;
+			if (!readName(var) || !readAddress(address)) {
+				return false;
+			}
+			list.push_back({ InstructionType::READ, { var }, "", {}, 0, address });
+			return true;
+		}
+		if (keyword == "WRITE") {
+			uint64_t address = 0;
+			Operand value;
+			if (!readAddress(address) || !readOperand(value)) {
+				return false;
+			}
+			list.push_back({ InstructionType::WRITE, { value }, "", {}, 0, address });
+			return true;
+		}
 		if (keyword == "PRINT") {
 			return parsePrint(list);
 		}
 		if (keyword == "FOR") {
 			return parseFor(depth, list);
 		}
-		return false;  // unknown, including WRITE and READ until paging is done
+		return false;  // unknown keyword
 	}
 
 	// Instructions separated by `separator`: ";" at the top level, "," inside a FOR.

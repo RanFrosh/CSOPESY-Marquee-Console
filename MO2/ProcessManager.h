@@ -65,7 +65,7 @@ public:
 		if (processesByName.find(name) != processesByName.end()) {
 			return nullptr;
 		}
-		return addProcess(name, mem, generateProgram(rng, config.minIns, config.maxIns));
+		return addProcess(name, mem, generateProgram(rng, config.minIns, config.maxIns, mem));
 	}
 
 	// For screen -c: the user's own program. Returns nullptr if a process with this name already exists.
@@ -89,7 +89,7 @@ public:
 			nextAutoNumber++;
 		} while (processesByName.find(name) != processesByName.end());
 
-		return addProcess(name, mem, generateProgram(rng, config.minIns, config.maxIns));
+		return addProcess(name, mem, generateProgram(rng, config.minIns, config.maxIns, mem));
 	}
 
 	// Returns the process with this name, finished or not, or nullptr if there isn't one.

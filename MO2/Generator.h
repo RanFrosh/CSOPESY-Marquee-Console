@@ -48,17 +48,25 @@ inline Operand randomOperand(mt19937_64& rng, vector<string>& declared) {
 	return uint16_t(randomBetween(rng, 0, 100));
 }
 
+// An address for READ/WRITE, up to a sixteenth past the end of the process's memory,
+// so roughly 1 in 17 of them causes an access violation
+inline uint64_t randomAddress(mt19937_64& rng, uint64_t mem) {
+	return randomBetween(rng, 0, (mem - 1) + mem / 16);
+}
+
 // Builds exactly `count` instructions; a FOR counts as 1 plus its body.
 // `declared` holds every variable the instructions before this point will have
 // created. Programs run in the order written and every FOR runs at least once,
-// so those variables are guaranteed to exist by the time the next instruction runs.
-inline vector<Instruction> generateList(mt19937_64& rng, uint64_t count, int depth, vector<string>& declared) {
+// so those variables exist by the time the next instruction runs, as long as the
+// 32-variable symbol table wasn't already full.
+inline vector<Instruction> generateList(mt19937_64& rng, uint64_t count, int depth, vector<string>& declared, uint64_t mem) {
 	vector<Instruction> list;
 
 	while (count > 0) {
-		// A FOR needs room for itself and at least one body instruction
+		// A FOR needs room for itself and at least one body instruction; FOR is the last type
 		bool canFor = depth < MAX_FOR_DEPTH && count >= 2;
-		auto type = InstructionType(randomBetween(rng, 0, canFor ? 5 : 4));
+		int lastType = int(InstructionType::FOR) - (canFor ? 0 : 1);
+		auto type = InstructionType(randomBetween(rng, 0, lastType));
 
 		switch (type) {
 		case InstructionType::PRINT: {
@@ -90,10 +98,18 @@ inline vector<Instruction> generateList(mt19937_64& rng, uint64_t count, int dep
 			list.push_back({ type, { uint16_t(randomBetween(rng, 1, MAX_SLEEP)) } });
 			count--;
 			break;
+		case InstructionType::READ:
+			list.push_back({ type, { pickVariable(rng, declared) }, "", {}, 0, randomAddress(rng, mem) });
+			count--;
+			break;
+		case InstructionType::WRITE:
+			list.push_back({ type, { randomOperand(rng, declared) }, "", {}, 0, randomAddress(rng, mem) });
+			count--;
+			break;
 		case InstructionType::FOR: {
 			uint64_t bodySize = randomBetween(rng, 1, min<uint64_t>(count - 1, MAX_FOR_BODY));
 			uint16_t repeats = uint16_t(randomBetween(rng, 1, MAX_FOR_REPEATS));
-			list.push_back({ type, {}, "", generateList(rng, bodySize, depth + 1, declared), repeats });
+			list.push_back({ type, {}, "", generateList(rng, bodySize, depth + 1, declared, mem), repeats });
 			count -= 1 + bodySize;
 			break;
 		}
@@ -102,8 +118,8 @@ inline vector<Instruction> generateList(mt19937_64& rng, uint64_t count, int dep
 	return list;
 }
 
-// A random program with between minIns and maxIns instructions
-inline vector<Instruction> generateProgram(mt19937_64& rng, uint64_t minIns, uint64_t maxIns) {
+// A random program with between minIns and maxIns instructions, for a process with `mem` bytes
+inline vector<Instruction> generateProgram(mt19937_64& rng, uint64_t minIns, uint64_t maxIns, uint64_t mem) {
 	vector<string> declared;
-	return generateList(rng, randomBetween(rng, minIns, maxIns), 0, declared);
+	return generateList(rng, randomBetween(rng, minIns, maxIns), 0, declared, mem);
 }
