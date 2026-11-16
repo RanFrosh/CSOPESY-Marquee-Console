@@ -16,12 +16,6 @@ const int MAX_SLEEP = 10;
 const int MIN_NAME_LENGTH = 1;
 const int MAX_NAME_LENGTH = 8;
 
-// true: every program alternates PRINT("Value from: " + x) and ADD(x, x, 1..10)
-// false: random programs from generateList
-const bool ALTERNATING_PROGRAMS = true;
-const int MIN_ADD_VALUE = 1;
-const int MAX_ADD_VALUE = 10;
-
 // Random whole number from lo to hi, inclusive
 inline uint64_t randomBetween(mt19937_64& rng, uint64_t lo, uint64_t hi) {
 	return uniform_int_distribution<uint64_t>(lo, hi)(rng);
@@ -108,30 +102,8 @@ inline vector<Instruction> generateList(mt19937_64& rng, uint64_t count, int dep
 	return list;
 }
 
-// PRINT, ADD, PRINT, ADD, ... `count` instructions in total.
-// x always exists, since every process starts with x = 0.
-inline vector<Instruction> generateAlternating(mt19937_64& rng, uint64_t count) {
-	vector<Instruction> list;
-	list.reserve(count);
-
-	for (uint64_t i = 0; i < count; i++) {
-		if (i % 2 == 0) {
-			list.push_back({ InstructionType::PRINT, { string("x") }, "Value from: " });
-		}
-		else {
-			uint16_t value = uint16_t(randomBetween(rng, MIN_ADD_VALUE, MAX_ADD_VALUE));
-			list.push_back({ InstructionType::ADD, { string("x"), string("x"), value } });
-		}
-	}
-	return list;
-}
-
-// A program with between minIns and maxIns instructions
+// A random program with between minIns and maxIns instructions
 inline vector<Instruction> generateProgram(mt19937_64& rng, uint64_t minIns, uint64_t maxIns) {
-	uint64_t count = randomBetween(rng, minIns, maxIns);
-	if (ALTERNATING_PROGRAMS) {
-		return generateAlternating(rng, count);
-	}
 	vector<string> declared;
-	return generateList(rng, count, 0, declared);
+	return generateList(rng, randomBetween(rng, minIns, maxIns), 0, declared);
 }

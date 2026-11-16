@@ -29,10 +29,10 @@ private:
 		return "p" + string(number < 10 ? "0" : "") + to_string(number);
 	}
 
-	// Creates, numbers and stores a process with a random program and `mem` bytes of memory.
+	// Creates, numbers and stores a process with this program and `mem` bytes of memory.
 	// The caller must already hold mtx and have checked the name is free.
-	shared_ptr<Process> addProcess(const string& name, uint64_t mem) {
-		auto process = make_shared<Process>(nextId, name, generateProgram(rng, config.minIns, config.maxIns), mem);
+	shared_ptr<Process> addProcess(const string& name, uint64_t mem, vector<Instruction> program) {
+		auto process = make_shared<Process>(nextId, name, move(program), mem);
 		nextId++;
 		processes.push_back(process);
 		processesByName[name] = process;
@@ -58,14 +58,24 @@ public:
 		return uint64_t(1) << randomBetween(rng, minExponent, maxExponent);
 	}
 
-	// For screen -s. Returns nullptr if a process with this name already exists.
+	// For screen -s: a random program. Returns nullptr if a process with this name already exists.
 	shared_ptr<Process> createProcess(const string& name, uint64_t mem) {
 		lock_guard<mutex> lock(mtx);
 
 		if (processesByName.find(name) != processesByName.end()) {
 			return nullptr;
 		}
-		return addProcess(name, mem);
+		return addProcess(name, mem, generateProgram(rng, config.minIns, config.maxIns));
+	}
+
+	// For screen -c: the user's own program. Returns nullptr if a process with this name already exists.
+	shared_ptr<Process> createCustomProcess(const string& name, uint64_t mem, const vector<Instruction>& program) {
+		lock_guard<mutex> lock(mtx);
+
+		if (processesByName.find(name) != processesByName.end()) {
+			return nullptr;
+		}
+		return addProcess(name, mem, program);
 	}
 
 	// For scheduler-start. Uses the next pNN name that isn't taken,
@@ -79,7 +89,7 @@ public:
 			nextAutoNumber++;
 		} while (processesByName.find(name) != processesByName.end());
 
-		return addProcess(name, mem);
+		return addProcess(name, mem, generateProgram(rng, config.minIns, config.maxIns));
 	}
 
 	// Returns the process with this name, finished or not, or nullptr if there isn't one.

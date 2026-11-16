@@ -15,6 +15,7 @@
 #include "Process.h"
 #include "ProcessManager.h"
 #include "Scheduler.h"
+#include "InstructionParser.h"
 using namespace std;
 
 
@@ -23,7 +24,8 @@ void enableEscapeCodes();
 void clearScreen();
 void printHeader();
 bool initialize(unique_ptr<ProcessManager>& manager, unique_ptr<Scheduler>& scheduler);
-void screen(const vector<string>& commandTexts, ProcessManager& manager, Scheduler& scheduler);
+bool readUserProgram(const string& input, vector<Instruction>& program);
+void screen(const vector<string>& commandTexts, const string& input, ProcessManager& manager, Scheduler& scheduler);
 void runProcessScreen(shared_ptr<Process> process);
 void processSmi(const Process& process);
 void processSmiMain(Scheduler& scheduler);
@@ -57,7 +59,7 @@ void printHeader() {
     cout << "==============================" << endl;
     cout << "Welcome to CSOPESY Emulator!" << endl;
     cout << "Group developers: \nChu, Avery\nSia, Justin\nTan, Paul\nTiu, Avram\n" << endl;
-    cout << "Last updated: November 1, 2026" << endl;
+    cout << "Last updated: November 16, 2026" << endl;
     cout << "------------------------------" << endl;
     cout << endl;
 }
@@ -81,30 +83,71 @@ bool initialize(unique_ptr<ProcessManager>& manager, unique_ptr<Scheduler>& sche
     return true;
 }
 
+// The program for screen -c, read from the raw input line because parse() would split
+// the quoted instructions apart at their spaces. Everything after the memory size must be
+// one quoted string; quotes inside it are typed as \" and turned back into plain quotes.
+bool readUserProgram(const string& input, vector<Instruction>& program) {
+    stringstream ss(input);
+    string skipped;
+    for (int i = 0; i < 4; i++) {
+        ss >> skipped;  // screen -c <name> <memory size>
+    }
+    string rest;
+    getline(ss, rest);
+
+    size_t first = rest.find_first_not_of(" \t");
+    size_t last = rest.find_last_not_of(" \t");
+    if (first == string::npos || first == last || rest[first] != '"' || rest[last] != '"') {
+        return false;
+    }
+
+    string text;
+    for (size_t i = first + 1; i < last; i++) {
+        if (rest[i] == '\\' && i + 1 < last && rest[i + 1] == '"') {
+            i++;
+        }
+        text += rest[i];
+    }
+
+    return InstructionParser(text).parse(program);
+}
+
 // screen -s <name> <memory size>: create a process with that many bytes and enter its screen
+// screen -c <name> <memory size> "<instructions>": the same, but running the given instructions
 // screen -r <name>: enter an existing, unfinished process's screen
 // screen -ls: show CPU utilization and the running and finished processes
-void screen(const vector<string>& commandTexts, ProcessManager& manager, Scheduler& scheduler) {
+void screen(const vector<string>& commandTexts, const string& input, ProcessManager& manager, Scheduler& scheduler) {
     if (commandTexts.size() == 2 && commandTexts[1] == "-ls") {
         cout << scheduler.buildReport();
         return;
     }
 
     bool create = commandTexts.size() >= 4 && commandTexts[1] == "-s";
+    bool custom = commandTexts.size() >= 5 && commandTexts[1] == "-c";
     bool reattach = commandTexts.size() >= 3 && commandTexts[1] == "-r";
-    if (!create && !reattach) {
-        cout << "Usage: screen -s <process name> <memory size> | screen -r <process name> | screen -ls" << endl;
+    if (!create && !custom && !reattach) {
+        cout << "Usage:" << endl;
+        cout << "  screen -s <process name> <memory size>" << endl;
+        cout << "  screen -c <process name> <memory size> \"<instructions>\"" << endl;
+        cout << "  screen -r <process name>" << endl;
+        cout << "  screen -ls" << endl;
         return;
     }
 
     const string& name = commandTexts[2];
     shared_ptr<Process> process;
 
-    if (create) {
+    if (create || custom) {
         // A power of 2 from 2^6 to 2^16 bytes
         uint64_t mem = 0;
         if (!parseNumber(commandTexts[3], MIN_PROC_MEM, MAX_PROC_MEM, mem) || !isPowerOfTwo(mem)) {
             cout << "invalid memory allocation" << endl;
+            return;
+        }
+
+        vector<Instruction> program;
+        if (custom && !readUserProgram(input, program)) {
+            cout << "invalid command" << endl;
             return;
         }
 
@@ -114,7 +157,12 @@ void screen(const vector<string>& commandTexts, ProcessManager& manager, Schedul
             return;
         }
 
-        process = manager.createProcess(name, mem);
+        if (custom) {
+            process = manager.createCustomProcess(name, mem, program);
+        }
+        else {
+            process = manager.createProcess(name, mem);
+        }
         if (process == nullptr) {
             scheduler.release(mem);
             cout << "Process " << name << " already exists." << endl;
@@ -299,7 +347,7 @@ int main() {
             }
         }
         else if (commandTexts[0] == "screen") {
-            screen(commandTexts, *manager, *scheduler);
+            screen(commandTexts, input, *manager, *scheduler);
         }
         else if (commandTexts[0] == "scheduler-start") {
             scheduler_start(*scheduler);

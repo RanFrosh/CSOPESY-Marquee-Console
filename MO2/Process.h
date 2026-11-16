@@ -261,7 +261,6 @@ public:
 		mem = param_mem;
 		program = param_program;
 		callStack.push_back({ &program, 0, 1 });
-		variables["x"] = 0;  // every process starts with x = 0 in its symbol table
 		sleepTicksLeft = 0;
 		createdAt = currentTimestamp();
 		totalInstructions = countInstructions(program);
